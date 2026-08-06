@@ -84,6 +84,9 @@ public final class DeadTrees {
    *
    * <p>Whole-canopy removal rather than a per-leaf roll, so there are no half-eaten crowns and no
    * orphaned leaves left floating where a trunk used to be.
+   *
+   * <p>Cleared through {@link ChunkContext#clear} rather than written to air, because a cold biome
+   * settles snow on top of a canopy and that snow has to come down with it.
    */
   private static void stripDeadCanopy(
       ChunkContext context,
@@ -95,7 +98,7 @@ public final class DeadTrees {
         continue;
       }
 
-      context.set(leaf.x(), leaf.y(), leaf.z(), Material.AIR);
+      context.clear(leaf.x(), leaf.y(), leaf.z());
     }
   }
 
@@ -125,7 +128,7 @@ public final class DeadTrees {
       if (i < keep) {
         context.set(tree.x(), y, tree.z(), CharredWood.standing(palette));
       } else {
-        context.set(tree.x(), y, tree.z(), Material.AIR);
+        context.clear(tree.x(), y, tree.z());
       }
     }
 
@@ -187,7 +190,7 @@ public final class DeadTrees {
       if (i == 0) {
         context.set(tree.x(), y, tree.z(), CharredWood.standing(palette));
       } else {
-        context.set(tree.x(), y, tree.z(), Material.AIR);
+        context.clear(tree.x(), y, tree.z());
       }
     }
 

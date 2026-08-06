@@ -62,7 +62,7 @@ public class NewEraCore extends JavaPlugin {
     getServer().getPluginManager().registerEvents(worldEngine, this);
 
     // Set up in-game /neweracore command
-    new NewEraCoreCommand(config, this).register();
+    new NewEraCoreCommand(config, this, worldEngine).register();
   }
 
   @Override

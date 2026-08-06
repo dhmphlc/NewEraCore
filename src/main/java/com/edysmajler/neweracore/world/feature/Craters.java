@@ -5,7 +5,6 @@ import com.edysmajler.neweracore.world.ChunkContext;
 import com.edysmajler.neweracore.world.ash.AshPalette;
 import com.edysmajler.neweracore.world.corruption.CorruptionProfile;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 
 /**
  * Carves impact craters inside impact zones.
@@ -114,6 +113,12 @@ public final class Craters {
           continue;
         }
 
+        // Ice is a solid block, so a frozen lake passes for ground unless fluid columns are named
+        // outright. Without this the apron paves a ring of debris across the ice sheet.
+        if (context.isFluidColumn(x, z)) {
+          continue;
+        }
+
         int surfaceY = context.groundY(x, z);
         if (context.typeAt(x, surfaceY, z).isSolid()) {
           context.set(x, surfaceY, z, debrisOrOre(context, palette, surfaceY, false));
@@ -139,6 +144,14 @@ public final class Craters {
       return;
     }
 
+    // The bowl only just clears the surface, so a tree standing in it would keep everything above
+    // the sphere and hang there. Whatever this column reached has to come away with it.
+    int spread = (int) Math.sqrt(Math.max(0, radius * radius - dx * dx - dz * dz));
+    int columnTop = centerY + spread;
+    if (columnTop >= context.groundY(x, z)) {
+      Blast.clearAbove(context, palette, x, columnTop, z);
+    }
+
     for (int dy = -radius; dy <= radius; dy++) {
       double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (distance > radius) {
@@ -156,7 +169,7 @@ public final class Craters {
 
   private static void excavate(ChunkContext context, int x, int y, int z) {
     if (isCarvable(context.typeAt(x, y, z))) {
-      context.set(x, y, z, Material.AIR);
+      context.clear(x, y, z);
     }
   }
 
@@ -175,7 +188,7 @@ public final class Craters {
 
     // Removal probability tapers to zero at the rim, so the outline stays ragged
     if (context.chance((radius - distance) / EDGE_BAND)) {
-      context.set(x, y, z, Material.AIR);
+      context.clear(x, y, z);
       return;
     }
 
@@ -205,14 +218,8 @@ public final class Craters {
   }
 
   private static boolean isCarvable(Material material) {
-    if (material.isAir()) {
-      return false;
-    }
-
     // Leave fluids alone: draining an ocean or lava lake into a crater looks broken and would
     // trigger the fluid updates this engine deliberately avoids
-    return material != Material.WATER
-        && material != Material.LAVA
-        && !Tag.ICE.isTagged(material);
+    return !material.isAir() && !ChunkContext.isFluid(material);
   }
 }

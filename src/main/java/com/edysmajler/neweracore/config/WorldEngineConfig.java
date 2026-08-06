@@ -38,6 +38,16 @@ public class WorldEngineConfig {
 
   @Valid
   @NotNull
+  @JsonProperty("history")
+  private HistoryConfig history = new HistoryConfig();
+
+  @Valid
+  @NotNull
+  @JsonProperty("infrastructure")
+  private InfrastructureConfig infrastructure = new InfrastructureConfig();
+
+  @Valid
+  @NotNull
   @JsonProperty("huge-craters")
   private HugeCraterConfig hugeCraters = new HugeCraterConfig();
 
@@ -69,6 +79,25 @@ public class WorldEngineConfig {
 
   public LevelsConfig getLevels() {
     return levels;
+  }
+
+  /**
+   * Returns the simulated history: the largest-scale layers, from which every region's character is
+   * derived.
+   *
+   * @return the history config
+   */
+  public HistoryConfig getHistory() {
+    return history;
+  }
+
+  /**
+   * Returns what was built between the landmarks: roads, rail, and power lines.
+   *
+   * @return the infrastructure config
+   */
+  public InfrastructureConfig getInfrastructure() {
+    return infrastructure;
   }
 
   public HugeCraterConfig getHugeCraters() {

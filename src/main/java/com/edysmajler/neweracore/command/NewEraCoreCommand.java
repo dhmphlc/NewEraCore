@@ -2,6 +2,7 @@ package com.edysmajler.neweracore.command;
 
 import com.crimsonwarpedcraft.cwcommons.command.BaseCommand;
 import com.edysmajler.neweracore.config.PluginConfig;
+import com.edysmajler.neweracore.world.WorldEngine;
 import dev.jorel.commandapi.CommandAPICommand;
 import org.bukkit.plugin.Plugin;
 
@@ -15,8 +16,9 @@ public class NewEraCoreCommand extends BaseCommand {
    *
    * @param config the loaded plugin configuration
    * @param plugin the plugin instance, used for its version
+   * @param engine the running world engine, which owns each world's simulated history
    */
-  public NewEraCoreCommand(PluginConfig config, Plugin plugin) {
+  public NewEraCoreCommand(PluginConfig config, Plugin plugin, WorldEngine engine) {
     super(
         new CommandAPICommand("neweracore")
             .withAliases("nec")
@@ -24,6 +26,15 @@ public class NewEraCoreCommand extends BaseCommand {
             .withSubcommand(
                 new CommandAPICommand("info")
                     .executes(new Info(config, plugin.getPluginMeta().getVersion()))
+            )
+            // Both need somewhere to stand, so both are player-only
+            .withSubcommand(
+                new CommandAPICommand("here")
+                    .executesPlayer(new Here(config, engine))
+            )
+            .withSubcommand(
+                new CommandAPICommand("craters")
+                    .executesPlayer(new FindCraters(config, engine))
             )
     );
   }

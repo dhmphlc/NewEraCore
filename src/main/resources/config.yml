@@ -46,13 +46,99 @@ world-engine:
     scarred-above: 0.34
     devastated-above: 0.68
 
+  # SIMULATED HISTORY — what happened here, before the player arrived.
+  #
+  # The largest scales in the engine, and the layer everything else is derived from. Corruption
+  # regions are a few hundred blocks and decide how DEEP the ash lies; these are a thousand or more
+  # and decide WHAT KIND OF PLACE this was. Three layers, read independently:
+  #
+  #   war         where things were DESTROYED. Craters, flattened deadfall, military landmarks.
+  #   ashfall     where things were BURIED. Deep ash, drifts, dry watercourses. Breaks nothing.
+  #   restoration where life HELD ON. Surviving groves, thinner ash. Not the inverse of war: a
+  #               place can be both heavily shelled and stubbornly green, and that is the most
+  #               interesting thing in the world to walk into.
+  #
+  # Their combinations are the region's story: war+ash = front line, war alone = ruined towns,
+  # ash alone = ashen waste, green = refuge, none of it = dust bowl. Future systems (roads, ruins,
+  # loot, radiation, settlements) all read that one answer instead of rolling their own dice.
+  #
+  # KEEP THE THREE SCALES UNEQUAL and not multiples of each other. Equal scales peak and trough
+  # together and the world collapses into a few enormous uniform districts; unequal ones beat
+  # against each other, so what you are walking through keeps changing.
+  history:
+    war-scale: 1024
+    ashfall-scale: 768
+    restoration-scale: 640
+
+    # Small islands of life punched through the broad layer. This is the mechanism behind the
+    # contrast the world is built on — a surviving grove inside a burned forest, a green hollow in a
+    # crater field. Broad noise cannot do it: a layer wide enough to define a region is far too wide
+    # to put anything small inside one. Raise the threshold for rarer pockets.
+    restoration-pocket-scale: 96
+    restoration-pocket-threshold: 0.86
+    restoration-pocket-strength: 0.9
+
+    octaves: 3
+
+    # Where a layer counts as "high", as a percentile. These pick the region's story.
+    war-high: 0.6
+    ashfall-high: 0.6
+    restoration-high: 0.55
+
+    # How hard each layer bends the corruption numbers. SET ALL THREE TO 0 and the engine behaves
+    # exactly as it did before history existed — that is the honest off switch.
+    war-influence: 0.7
+    ashfall-influence: 0.6
+    restoration-influence: 0.55
+
+    # Rare places worth setting out for: silos, radio towers, dams, hospitals, military bases,
+    # airports, research facilities, big bridges. Locations only for now — nothing is built on them
+    # yet. The type is chosen from the history at the site, so a silo lands in a war zone and a dam
+    # in a green valley.
+    landmarks:
+      spacing: 1500     # blocks between candidate sites; validated to 1000-3000
+      chance: 0.85      # below 1 so the gaps vary instead of falling on an obvious lattice
+      jitter: 0.4       # how far a site wanders inside its cell, as a share of the cell
+
+  # INFRASTRUCTURE — what was built between the landmarks, before anything was built on top of it.
+  #
+  # This is laid down FIRST, and the order is the whole point. Towns do not appear at random
+  # coordinates: they grow where roads meet, industry sits where the rail reaches, and a checkpoint
+  # belongs where a road crosses a river. Lay the network first and everything placed later has a
+  # reason to be where it is.
+  #
+  # Which places are joined is a Gabriel graph — two places connect when no third place sits between
+  # them — so the network branches like a real road map, never crosses itself, and always stays
+  # connected. What runs between them follows from what they are: a works gets rail, a dam gets a
+  # power line, everything else gets a road.
+  #
+  # Routes are built BEFORE the ashfall, so ash settles over the tarmac and craters take bites out
+  # of it. Drawn afterwards they would sit pristine on top of a ruined world.
+  infrastructure:
+    enabled: true
+    max-route-length: 3200   # blocks; two places further apart than this are never joined
+    clearance: 5             # blocks of headroom kept clear, or the road is buried under the canopy
+    decay: 0.3               # share of surface broken up and grown over; nobody has maintained this
+    pylon-spacing: 24
+    pylon-height: 9
+    bridge-pillar-spacing: 8
+
   # Rare impacts big enough to span many chunks. These are the events the rest of the world is
   # reacting to, so they are huge and far apart. Sites sit on a coarse grid in world coordinates
-  # rather than being rolled per chunk, which is what lets one bowl cross chunk borders seamlessly,
-  # and they are only kept where the region is already devastated.
+  # rather than being rolled per chunk, which is what lets one bowl cross chunk borders seamlessly.
+  #
+  # A candidate site has to pass two more tests, so `chance` is not the share that survives:
+  #
+  #   1. The WAR map must say the fighting reached it, which is what makes the biggest hole in the
+  #      ground and the ruined country around it one event rather than two coincidences.
+  #   2. The generator must put LAND there. A crater at sea carves nothing at all — water and ice are
+  #      never cut — so it would be a kilometre's walk to look at open water. This alone turns away
+  #      about a third of them, which is what `chance` is set high enough to pay for.
+  #
+  # Raise `chance` for more of them, or lower `spacing` to bring them closer together.
   huge-craters:
     spacing: 768        # blocks between candidate sites; larger means rarer
-    chance: 0.4         # chance a candidate site actually holds one
+    chance: 0.6         # chance a candidate cell holds one — see below, not all of them survive
     radius-min: 18
     radius-max: 36
     depth-factor: 0.5   # depth relative to radius

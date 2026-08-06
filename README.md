@@ -13,7 +13,13 @@ NewEraCore currently provides the plugin foundation that server features build o
   * Three levels — `RECOVERED`, `SCARRED`, `DEVASTATED` — from OpenSimplex noise, so neighbouring chunks share a level and transitions blend
   * Dry streambeds, crater clusters inside impact zones, dead undergrowth that leaves litter rather than swept ground
   * Biome identity preserved: one shared ash carpet over per-biome palettes, so a buried taiga still differs from a buried swamp
-* `/neweracore info` (alias `/nec`) — reports the running plugin version, gated behind `neweracore.admin`
+* **Simulated history** — three world-scale layers (war, ashfall, restoration) give every region a story: front line, ruined towns, ashen waste, green refuge, dust bowl. Every system reads the same `RegionProfile`, so a place cannot contradict itself. Rare landmark sites (silos, dams, airports, hospitals) are placed deterministically for future structure generators
+* **Infrastructure before buildings** — highways, railways, and power lines connect the landmarks over a Gabriel graph, with bridges where they cross water. What runs between two places follows from what they are: rail to a works, a power line between dam and mast, a highway for everything else. Laid down before the ashfall, so ash settles over the tarmac and craters break it. Every later system can ask `nearestRoute(x, z)`, which is the point
+* `/neweracore` (alias `/nec`), all gated behind `neweracore.admin`:
+  * `info` — the running plugin version
+  * `here` — what happened where you are standing: story, the three history layers, the numbers the passes actually ran on, the nearest landmark, and whether this chunk predates the plugin
+  * `craters` — the huge impact craters within 3000 blocks, with coordinates, bearings, and sizes
+  * `here` also reports what route runs past and how far away it is
 * Config loading and validation via [cw-commons](https://github.com/CrimsonWarpedcraft/cw-commons)' `BukkitConfigManagerBuilder`, backed by [Jackson](https://github.com/fasterxml/jackson) and [Hibernate Validator](https://hibernate.org/validator/)
 * Persistent SQLite-backed storage via cw-commons' `BukkitDataStoreBuilder`, with periodic flushing through `AutoFlushTask`
 * [CommandAPI](https://commandapi.jorel.dev) wired up for programmatic command registration with subcommands, tab completion, and permissions

@@ -16,7 +16,9 @@ import org.bukkit.Material;
  *
  * @param ashCarpet the thin covering laid over almost every surface
  * @param ashGround the dominant pale ground under the carpet
- * @param deepAsh the paler ground used where ash has piled up
+ * @param deepAsh the paler ground used where ash has piled up, and the ground a column falls back
+ *     to when it has to hold something up — so this one must be a full block, or snow layers,
+ *     carpets, and surviving plants placed on it will pop off at the next block update
  * @param scouredRock what an exposed, wind-stripped face becomes
  * @param grit coarser material mixed into scoured ground
  * @param dryBed what a drained watercourse is left as

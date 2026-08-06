@@ -6,7 +6,6 @@ import com.edysmajler.neweracore.world.ChunkContext;
 import com.edysmajler.neweracore.world.ash.AshPalette;
 import java.util.List;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 
 /**
  * Carves the rare impacts that span many chunks.
@@ -84,6 +83,15 @@ public final class HugeCraters {
       int x,
       int z
   ) {
+    // The depth profile is measured from this column's own ground, and over water that "ground" is
+    // the surface of the lake, or the ice sheet frozen across it. Carving skips the fluids, so the
+    // bowl never appeared — but the floor was still stamped at the depth the profile asked for,
+    // which is somewhere down inside the water. That is the disc of dirt and tuff that showed up
+    // sitting in frozen oceans. A body of water is not land, so it takes no part of the crater.
+    if (context.isFluidColumn(x, z)) {
+      return;
+    }
+
     int groundY = context.groundY(x, z);
     int depth = depthAt(config, site, distance);
 
@@ -92,10 +100,13 @@ public final class HugeCraters {
       return;
     }
 
+    // The forest does not survive the hole opening underneath it
+    Blast.clearAbove(context, palette, x, groundY, z);
+
     for (int i = 0; i < depth; i++) {
       int y = groundY - i;
       if (isCarvable(context.typeAt(x, y, z))) {
-        context.set(x, y, z, Material.AIR);
+        context.clear(x, y, z);
       }
     }
 
@@ -166,6 +177,11 @@ public final class HugeCraters {
       return;
     }
 
+    // Ice is solid, so a frozen lake reads as ground here unless fluid columns are named outright
+    if (context.isFluidColumn(x, z)) {
+      return;
+    }
+
     int groundY = context.groundY(x, z);
     if (!context.typeAt(x, groundY, z).isSolid()) {
       return;
@@ -176,13 +192,8 @@ public final class HugeCraters {
   }
 
   private static boolean isCarvable(Material material) {
-    if (material.isAir()) {
-      return false;
-    }
-
-    return material != Material.WATER
-        && material != Material.LAVA
+    return !material.isAir()
         && material != Material.BEDROCK
-        && !Tag.ICE.isTagged(material);
+        && !ChunkContext.isFluid(material);
   }
 }

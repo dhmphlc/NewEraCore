@@ -11,7 +11,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.edysmajler.neweracore.config.HistoryConfig;
 import com.edysmajler.neweracore.config.HugeCraterConfig;
+import com.edysmajler.neweracore.config.InfrastructureConfig;
 import com.edysmajler.neweracore.config.LevelsConfig;
 import com.edysmajler.neweracore.config.NoiseConfig;
 import com.edysmajler.neweracore.config.OreConfig;
@@ -129,6 +131,8 @@ class WorldEngineTest {
     when(config.getNoise()).thenReturn(new NoiseConfig());
     when(config.getThresholds()).thenReturn(new ThresholdConfig());
     when(config.getLevels()).thenReturn(new LevelsConfig());
+    when(config.getHistory()).thenReturn(new HistoryConfig());
+    when(config.getInfrastructure()).thenReturn(new InfrastructureConfig());
     when(config.getHugeCraters()).thenReturn(new HugeCraterConfig());
     when(config.getOres()).thenReturn(new OreConfig());
     return config;

@@ -3,8 +3,9 @@ package com.edysmajler.neweracore.world;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
 import com.edysmajler.neweracore.world.corruption.CorruptionLevel;
 import com.edysmajler.neweracore.world.corruption.CorruptionProfile;
-import com.edysmajler.neweracore.world.corruption.CorruptionZone;
 import com.edysmajler.neweracore.world.feature.CraterSite;
+import com.edysmajler.neweracore.world.history.RegionProfile;
+import com.edysmajler.neweracore.world.infrastructure.InfrastructureEngine;
 import com.edysmajler.neweracore.world.noise.NoiseFields;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
@@ -28,9 +29,8 @@ import org.bukkit.block.data.BlockData;
  * <p>Placement decisions come from the noise masks, not from the random source: the masks decide
  * <em>where</em> ground dies, which stands of trees burn, and where craters land, so those things
  * appear as patches and regions. The random source is only used for texture inside an already
- * chosen
- * area — which of two dead materials to place, how long a fallen log is — and is seeded from the
- * world seed and chunk coordinates so a chunk always transforms identically.
+ * chosen area — which of two dead materials to place, how long a fallen log is — and is seeded from
+ * the world seed and chunk coordinates so a chunk always transforms identically.
  */
 public class ChunkContext {
 
@@ -40,7 +40,9 @@ public class ChunkContext {
   private final Chunk chunk;
   private final ChunkSnapshot snapshot;
   private final WorldEngineConfig config;
-  private final CorruptionZone zone;
+  private final RegionProfile region;
+  private final InfrastructureEngine infrastructure;
+  private final boolean[] reserved = new boolean[CHUNK_SIZE * CHUNK_SIZE];
   private final Random random;
   private final int minHeight;
   private final int maxHeight;
@@ -65,7 +67,8 @@ public class ChunkContext {
    * @param chunk the chunk being transformed
    * @param config the world engine settings
    * @param fields the world's noise fields
-   * @param zone the chunk's resolved corruption zone
+   * @param region what happened in this chunk's region, resolved once by the history engine
+   * @param infrastructure the world's network of routes between its landmarks
    * @param hugeCraterSites the world-scale impact sites reaching this chunk
    */
   @SuppressFBWarnings(
@@ -78,14 +81,16 @@ public class ChunkContext {
       Chunk chunk,
       WorldEngineConfig config,
       NoiseFields fields,
-      CorruptionZone zone,
+      RegionProfile region,
+      InfrastructureEngine infrastructure,
       List<CraterSite> hugeCraterSites
   ) {
     this.chunk = chunk;
     // Height map is required for surfaceY; biome data drives transformer selection
     this.snapshot = chunk.getChunkSnapshot(true, true, false);
     this.config = config;
-    this.zone = zone;
+    this.region = region;
+    this.infrastructure = infrastructure;
     this.hugeCraterSites = List.copyOf(hugeCraterSites);
     this.minHeight = chunk.getWorld().getMinHeight();
     this.maxHeight = chunk.getWorld().getMaxHeight() - 1;
@@ -137,21 +142,75 @@ public class ChunkContext {
   }
 
   /**
+   * Returns what happened in this chunk's region.
+   *
+   * <p>The single place to ask a region-scale question. A pass that samples a large field for
+   * itself is inventing its own private history, and two passes doing that will disagree about the
+   * same valley; this is the answer they all share. Per-<em>column</em> texture still comes from
+   * the masks below, which is a different question — where a material varies inside a place, not
+   * what the place is.
+   *
+   * @return the region profile
+   */
+  public RegionProfile region() {
+    return region;
+  }
+
+  /**
+   * Returns the world's network of routes between its landmarks.
+   *
+   * @return the infrastructure engine
+   */
+  public InfrastructureEngine infrastructure() {
+    return infrastructure;
+  }
+
+  /**
+   * Claims a column for something built, so later passes leave its ground alone.
+   *
+   * <p>A road is laid before the ashfall, and the ashfall repaves whatever it covers — so without a
+   * claim the highway would be built perfectly and then buried out of existence a moment later. A
+   * reserved column still gets its dust; what it does not get is its surface replaced.
+   *
+   * @param x chunk-relative x, 0-15
+   * @param z chunk-relative z, 0-15
+   */
+  public void reserve(int x, int z) {
+    if (inChunk(x, z)) {
+      reserved[(x << 4) | z] = true;
+    }
+  }
+
+  /**
+   * Returns whether something built has claimed a column's ground.
+   *
+   * @param x chunk-relative x, 0-15
+   * @param z chunk-relative z, 0-15
+   * @return true when the column belongs to a route
+   */
+  public boolean isReserved(int x, int z) {
+    return inChunk(x, z) && reserved[(x << 4) | z];
+  }
+
+  /**
    * Returns the corruption level this chunk belongs to.
    *
    * @return the level
    */
   public CorruptionLevel level() {
-    return zone.level();
+    return region.corruptionLevel();
   }
 
   /**
-   * Returns the effective rules for this chunk, already blended for a smooth level transition.
+   * Returns the effective rules for this chunk.
+   *
+   * <p>Already blended for a smooth level transition <em>and</em> already shaped by the region's
+   * history, so every pass that reads this is story-driven without knowing that history exists.
    *
    * @return the profile
    */
   public CorruptionProfile profile() {
-    return zone.profile();
+    return region.profile();
   }
 
   /**
@@ -160,7 +219,7 @@ public class ChunkContext {
    * @return the intensity between 0 and 1
    */
   public double intensity() {
-    return zone.intensity();
+    return region.corruptionIntensity();
   }
 
   /**
@@ -306,6 +365,36 @@ public class ChunkContext {
   }
 
   /**
+   * Returns whether a column's own surface is a body of water or lava rather than ground.
+   *
+   * <p>{@link #groundY} stops at water, so a lake surface counts as that column's "ground". In a
+   * cold biome it also stops at the ice sheet frozen over the water, because ice is a solid block.
+   * Neither is land, and a pass that treats them as land writes into the lake: crater ejecta
+   * settles on the ice like a paved ring, and a crater floor stamped relative to that "ground"
+   * lands inside the water below it. That is where the discs of debris in frozen oceans came from —
+   * the surface looked solid, so the crater passes built on it.
+   *
+   * @param x chunk-relative x, 0-15
+   * @param z chunk-relative z, 0-15
+   * @return true when the column's surface is water, lava, or the ice over them
+   */
+  public boolean isFluidColumn(int x, int z) {
+    return isFluid(typeAt(x, groundY(x, z), z));
+  }
+
+  /**
+   * Returns whether a material is a fluid or the frozen skin of one.
+   *
+   * @param material the material to test
+   * @return true when the material belongs to a body of water or lava
+   */
+  public static boolean isFluid(Material material) {
+    return material == Material.WATER
+        || material == Material.LAVA
+        || Tag.ICE.isTagged(material);
+  }
+
+  /**
    * Returns the lowest height the engine inspects in a column.
    *
    * @param x chunk-relative x, 0-15
@@ -388,6 +477,31 @@ public class ChunkContext {
   }
 
   /**
+   * Removes a block along with anything that was only resting on top of it.
+   *
+   * <p>Physics is disabled for every write this engine makes, which is what keeps a chunk from
+   * cascading into fluid and block updates as it is transformed. The cost is that nothing falls or
+   * pops off by itself, so whatever a removed block was holding up stays exactly where it was. A
+   * cold biome settles snow on top of leaves, so stripping a canopy with a plain air write left the
+   * snow hanging in mid-air — a grid of white flecks in the outline of the tree that used to be
+   * there, which reads worse than the living canopy did. A crater carving under a flower left the
+   * flower hovering over the hole for the same reason.
+   *
+   * <p>Use this rather than {@code set(x, y, z, AIR)} wherever the engine takes a block away.
+   *
+   * @param x chunk-relative x, 0-15
+   * @param y absolute height
+   * @param z chunk-relative z, 0-15
+   */
+  public void clear(int x, int y, int z) {
+    set(x, y, z, Material.AIR);
+
+    for (int above = y + 1; isPerched(typeAt(x, above, z)); above++) {
+      set(x, above, z, Material.AIR);
+    }
+  }
+
+  /**
    * Returns whether chunk-relative horizontal coordinates fall inside this chunk.
    *
    * @param x chunk-relative x
@@ -430,9 +544,24 @@ public class ChunkContext {
       return true;
     }
 
-    return Tag.LOGS.isTagged(material)
+    // Bamboo, a cactus, and a huge mushroom's cap are solid, so without naming them the walk
+    // stopped at the top of the plant and reported it as the floor — which is how ash ended up
+    // sitting on top of bamboo and half a mushroom turned into dirt
+    return Vegetation.isStanding(material)
+        || Tag.LOGS.isTagged(material)
         || Tag.LEAVES.isTagged(material)
         || Tag.WOOL_CARPETS.isTagged(material);
+  }
+
+  /**
+   * Returns whether a material only exists because something held it up from below.
+   *
+   * <p>Snow layers and plants qualify. Snow <em>blocks</em> and powder snow do not: they are full
+   * blocks that stand on their own, so a crater is free to leave them at its rim like any other
+   * block.
+   */
+  private static boolean isPerched(Material material) {
+    return material == Material.SNOW || Vegetation.needsFooting(material);
   }
 
   private int index(int x, int y, int z) {
