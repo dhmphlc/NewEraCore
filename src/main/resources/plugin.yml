@@ -1,0 +1,15 @@
+main: ${PACKAGE}.${NAME}
+name: ${NAME}
+version: "${VERSION}"
+api-version: "26.1.2"
+author: edysmajler
+description: Core plugin for the New Era server.
+permissions:
+  neweracore.admin:
+    description: Grants access to NewEraCore administration commands
+    default: op
+  neweracore.*:
+    description: Grants all other permissions
+    default: false
+    children:
+      neweracore.admin: true

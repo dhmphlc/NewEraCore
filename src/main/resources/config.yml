@@ -1,0 +1,115 @@
+# Prefix prepended to messages NewEraCore sends to players.
+# Supports MiniMessage formatting: https://docs.advntr.dev/minimessage/format.html
+message-prefix: "<gray>[<aqua>NewEraCore<gray>]</gray> "
+
+# World corruption engine — ashen nuclear winter.
+# Each chunk is corrupted exactly once, when it first generates. Chunks that already existed before
+# the plugin was installed, and anything players have built, are never touched.
+#
+# Two principles run through all of this:
+#
+#   1. ASH FALLS ON EVERYTHING. Coverage is near-universal and only its DEPTH varies, the way snow
+#      works in a winter biome. Leaving half the world vanilla and swapping blocks in the other half
+#      is what makes a world look griefed rather than ruined.
+#   2. WHOLE SHAPES, NOT BLOCK EDITS. A tree is either alive and untouched, or dead with no leaves at
+#      all and a charred trunk. Deleting a share of a living tree's leaves leaves a healthy shape full
+#      of holes, which is the clearest griefing signature there is.
+#
+# Where things land is decided by the terrain and by noise, never by a per-block dice roll: ash piles
+# up in hollows, blows off steep faces down to bare rock, and whole stands of trees share one fate.
+#
+# Thresholds are PERCENTILES of their field (the fields are calibrated, so 0.4 really is the worst
+# 60%). LOWER a threshold to affect MORE. 1.0 disables a feature; 0.0 makes it universal.
+world-engine:
+  enabled: true
+
+  # How many blocks below each column's surface the engine inspects. Range: 1-64.
+  scan-depth: 24
+
+  # Feature sizes, in blocks.
+  noise:
+    # Width of a corruption region — how far you walk before the ash deepens or thins.
+    corruption-scale: 384
+    # Size of the broad variation in ground treatment.
+    patch-scale: 36
+    # Size of a stand of trees that shares one fate.
+    blight-scale: 56
+    # Size of an impact zone that craters cluster inside.
+    impact-scale: 128
+    # Size of one patch of a single ground material. Keep this well above ~12, or materials mix block
+    # by block and the ground reads as confetti instead of as areas.
+    detail-scale: 20
+    octaves: 3
+
+  # Shares of the world at each level. Defaults: 34% recovered, 34% scarred, 32% devastated.
+  thresholds:
+    scarred-above: 0.34
+    devastated-above: 0.68
+
+  # Rare impacts big enough to span many chunks. These are the events the rest of the world is
+  # reacting to, so they are huge and far apart. Sites sit on a coarse grid in world coordinates
+  # rather than being rolled per chunk, which is what lets one bowl cross chunk borders seamlessly,
+  # and they are only kept where the region is already devastated.
+  huge-craters:
+    spacing: 768        # blocks between candidate sites; larger means rarer
+    chance: 0.4         # chance a candidate site actually holds one
+    radius-min: 18
+    radius-max: 36
+    depth-factor: 0.5   # depth relative to radius
+
+  # Ore torn out of the ground by an impact and left lying in the open.
+  ores:
+    small-crater-chance: 0.07   # chance a debris block in a small crater is ore
+    huge-crater-chance: 0.18    # huge craters reach deeper, so they expose more
+    iron-share: 0.2             # share of exposed ore that is iron rather than coal or copper
+    precious-share: 0.12        # share of huge-crater ore better than iron (gold, redstone,
+                                # lapis, raw blocks, rarely diamond)
+
+  # Rules per level. A chunk near a boundary blends towards the level below, so the ash deepens
+  # gradually instead of stepping.
+  levels:
+
+    # Ash lies thin. Half the forest survived. The land still reads as the biome it was.
+    recovered:
+      ash-carpet-coverage: 0.55      # 55% of sheltered ground gets an ash carpet
+      deep-ash-share: 0.12
+      drift-chance: 0.15
+      scour-slope: 4                 # only steep faces strip to rock
+      living-grove-threshold: 0.35   # a third of the stands live
+      snap-share: 0.25
+      collapse-share: 0.1
+      dead-bush-chance: 0.3
+      water-drying-chance: 0.25
+      impact-zone-threshold: 0.92
+      craters-per-zone: 0.15
+      large-crater-share: 0.0
+
+    # Deep ash, almost no living forest, dry streams, craters in places.
+    scarred:
+      ash-carpet-coverage: 0.85
+      deep-ash-share: 0.35
+      drift-chance: 0.45
+      scour-slope: 3
+      living-grove-threshold: 0.05   # only a few sheltered groves hang on
+      snap-share: 0.55
+      collapse-share: 0.3
+      dead-bush-chance: 0.4
+      water-drying-chance: 0.6
+      impact-zone-threshold: 0.68
+      craters-per-zone: 1.0
+      large-crater-share: 0.12
+
+    # Total ash cover, nothing alive, scoured ridges, drifts in every hollow, crater clusters.
+    devastated:
+      ash-carpet-coverage: 1.0
+      deep-ash-share: 0.7
+      drift-chance: 0.8
+      scour-slope: 2                 # even gentle slopes strip bare
+      living-grove-threshold: 0.0    # nothing survives
+      snap-share: 0.8
+      collapse-share: 0.5
+      dead-bush-chance: 0.45
+      water-drying-chance: 0.95
+      impact-zone-threshold: 0.4
+      craters-per-zone: 2.0
+      large-crater-share: 0.3
