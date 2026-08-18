@@ -20,7 +20,9 @@ NewEraCore currently provides the plugin foundation that server features build o
   * `here` — what happened where you are standing: story, the three history layers, the numbers the passes actually ran on, the nearest landmark, and whether this chunk predates the plugin
   * `locate <kind>` — the nearest missile silo, military base, research facility, airport, hospital, dam, or radio tower: coordinates, distance, bearing, and the region's story. Airports also report their runway
   * `craters` — the huge impact craters within 3000 blocks, with coordinates, bearings, and sizes
-  * `here` also reports what route runs past and how far away it is
+  * `here` also reports what route runs past and how far away it is, the terrain the generator
+    puts here (water, river, relief, enclosure, valley), and how well each landmark type suits
+    that ground — the same number siting itself uses, so the readout cannot disagree with it
 * Config loading and validation via [cw-commons](https://github.com/CrimsonWarpedcraft/cw-commons)' `BukkitConfigManagerBuilder`, backed by [Jackson](https://github.com/fasterxml/jackson) and [Hibernate Validator](https://hibernate.org/validator/)
 * Persistent SQLite-backed storage via cw-commons' `BukkitDataStoreBuilder`, with periodic flushing through `AutoFlushTask`
 * [CommandAPI](https://commandapi.jorel.dev) wired up for programmatic command registration with subcommands, tab completion, and permissions

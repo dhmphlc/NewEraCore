@@ -193,10 +193,39 @@ only within the middle 40% of its cell so two sites either side of a border can 
 neighbours. Measured: nearest-neighbour distances of 942 / 1285 / 1752 blocks (min / mean / max), and
 nowhere is further than 3000 blocks from something to walk to.
 
-The type is chosen from the history at the site, so a silo lands in a war zone and a dam in a green
-valley — a landmark should be evidence of what happened, not decoration dropped on top of it. Nothing
-here reads the terrain: that would need chunks loaded, and a landmark has to be knowable from
-arbitrarily far away. A generator that needs a river under its dam can refuse the site when it arrives.
+The type is chosen from **two** questions about the site, never from a bare roll. Its *story* decides
+whether the place belongs in this region — a silo in a war zone, not in a valley the fighting never
+reached. Its *ground* decides whether it could have been built here at all: a dam wants water within
+reach, an airport wants open country. A landmark should be evidence of what happened, not decoration
+dropped on top of it.
+
+Dry land is asked first, for **every** type. The first version asked only the places that *wanted*
+water, so a hospital or a radio mast could be sited in mid-ocean and nothing stopped it. Ground that
+suits nothing now holds nothing and the cell is simply empty; the filter can never empty the candidate
+list, because `RADIO_TOWER` has no story affinity and no ground requirement, so constraining the ground
+changes a site's *kind*, never its existence.
+
+Both questions are answered at **selection** time, from the generator's computed biome rather than from
+loaded chunks, so a landmark stays knowable from arbitrarily far away — which is what lets a road aim
+at one from two thousand blocks off. Refusing a site later, when a builder arrives and finds no river
+under its dam, is not an alternative: by then the history layer has already committed to a claim the
+terrain contradicts, and the semantic consistency the whole engine exists to produce is already lost.
+
+The honest limit today is that `SiteTerrain`'s three answers are all derived from biome *names*. That
+makes "waterside" mean *a river or ocean biome within 72 blocks*, which says nothing about relief,
+gradient, or whether there is a valley there to flood. The Paper API offers no generator-side height
+query — `getHighestBlockYAt` generates the chunk, and `ChunkGenerator` is an interface to implement
+rather than a way to ask what vanilla would do — so richer answers have to be derived from sampling
+computed biomes over an area rather than measured from terrain.
+
+**What siting costs** decides how much it can know. Every question about the ground is a question to
+the world generator, and each position asks about the nine cells around it — so a cell 1500 blocks
+across was being resolved from scratch for each of the ~8,800 chunks inside it, and dry land was asked
+once per candidate type, seven identical questions about one block. A resolved cell is now remembered
+(bounded, dropped wholesale when full, safe because every value is a pure function of the seed), dry
+land is asked once per cell, and a site at sea costs exactly one question instead of a story and a full
+candidate list on the way to placing nothing. That headroom is the whole reason terrain-aware siting can
+afford to describe the ground around a site rather than test a single point.
 
 Reach them through `RegionProfile.landmark()` (standing on one) and `nearestLandmark()` (what a road
 should aim at). In game, `/nec locate <kind>` finds the nearest of any type — searching one ring of

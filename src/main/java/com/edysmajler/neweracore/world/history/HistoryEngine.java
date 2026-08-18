@@ -17,9 +17,11 @@ import java.util.List;
  * <p>One instance per world, cached, because building the layers calibrates each field against
  * thousands of samples. After that, a query is a handful of noise samples and nine integer hashes:
  * cheap enough to call per chunk on the main thread, and cheap enough that a later system can call
- * it per block if it wants to. There is no cache and no mutable state on purpose — a pure function
- * needs neither, and both would be a correctness risk on a server that generates chunks from more
- * than one thread.
+ * it per block if it wants to. Nothing here holds state between queries — a pure function does not
+ * need any, and on a server that generates chunks from more than one thread it would be a
+ * correctness risk. The single exception is the memo {@link LandmarkMap} keeps of the cells it has
+ * already resolved, which is safe for the reason set out there: its values are pure functions of
+ * the seed, so a lost or raced entry is recomputed rather than wrong.
  *
  * <p>This class has no dependency on Bukkit, and neither does anything else in this package. The
  * entire history of a world can be sampled, measured, and tested without a server running, which is

@@ -94,15 +94,67 @@ public enum LandmarkType {
    * @return true when the place could stand here
    */
   public boolean canStandAt(SiteTerrain terrain, int blockX, int blockZ) {
-    if (!terrain.isDryLand(blockX, blockZ)) {
-      return false;
-    }
+    return terrain.isDryLand(blockX, blockZ) && suitsGround(terrain, blockX, blockZ);
+  }
 
+  /**
+   * Returns whether the ground suits this type, for a caller that has already established it is
+   * dry.
+   *
+   * <p>The type-specific half of {@link #canStandAt}, split out because dry land is the same answer
+   * for every candidate type and asking it inside the loop asked the generator the same question
+   * about the same block once per type. Siting resolves a cell by asking about the ground once and
+   * then calling this per candidate; the whole-question form above stays for callers who only have
+   * one type to test.
+   *
+   * @param terrain what the ground is like
+   * @param blockX absolute block x of the site
+   * @param blockZ absolute block z of the site
+   * @return true when the ground suits this type, dry land assumed
+   */
+  public boolean suitsGround(SiteTerrain terrain, int blockX, int blockZ) {
     return switch (this) {
       case HYDROELECTRIC_DAM -> terrain.isWaterside(blockX, blockZ);
       case AIRPORT -> terrain.isOpen(blockX, blockZ);
       default -> true;
     };
+  }
+
+  /**
+   * Returns how well described ground suits this type, from 0 to 1.
+   *
+   * <p>The continuous form of {@link #canStandAt}, and it lives here rather than in the command
+   * that prints it so the number a player is shown is the same number siting will act on. A readout
+   * that computes its own answer is worse than no readout: it agrees right up until the moment the
+   * two drift, and then it lies about the one thing it exists to explain.
+   *
+   * <p>Types with no ground requirement score 1 anywhere dry, which is honest rather than a
+   * placeholder — a radio mast really does not care. Nothing scores anything at sea.
+   *
+   * @param ground what the ground around the site is like
+   * @return 0 where the type could not stand, 1 where the ground is everything it wants
+   */
+  public double suitability(SiteGround ground) {
+    if (!ground.dryLand()) {
+      return 0.0;
+    }
+
+    return switch (this) {
+      case HYDROELECTRIC_DAM -> ground.valley();
+      case AIRPORT -> ground.openness();
+      default -> 1.0;
+    };
+  }
+
+  /**
+   * Returns whether this type's suitability depends on the ground at all.
+   *
+   * <p>So a readout can list the types whose score means something instead of a column of ones.
+   *
+   * @return true when the type has a ground requirement
+   */
+  public boolean needsParticularGround() {
+    return this == HYDROELECTRIC_DAM || this == AIRPORT;
   }
 
   /**

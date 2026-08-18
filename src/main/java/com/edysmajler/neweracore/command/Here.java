@@ -4,10 +4,15 @@ import com.edysmajler.neweracore.config.PluginConfig;
 import com.edysmajler.neweracore.world.WorldEngine;
 import com.edysmajler.neweracore.world.corruption.CorruptionProfile;
 import com.edysmajler.neweracore.world.history.Landmark;
+import com.edysmajler.neweracore.world.history.LandmarkType;
 import com.edysmajler.neweracore.world.history.RegionProfile;
+import com.edysmajler.neweracore.world.history.SiteGround;
+import com.edysmajler.neweracore.world.history.TerrainQuery;
 import com.edysmajler.neweracore.world.infrastructure.Route;
 import dev.jorel.commandapi.executors.CommandArguments;
 import dev.jorel.commandapi.executors.PlayerCommandExecutor;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -24,6 +29,14 @@ import org.bukkit.entity.Player;
  *
  * <p>It reports the shaped profile rather than the level's defaults, because that is what the world
  * was built from. A number here that does not match config.yml is the history doing its job.
+ *
+ * <p>It also reports the <em>ground</em>, which is the half of siting that was previously
+ * impossible to see. Whether a dam belongs somewhere is a number derived from the terrain, and one
+ * you
+ * cannot read is a number you cannot tune: the only way to check it was to walk to a landmark and
+ * judge by eye whether it looked like it made sense. So the measurements are printed, and the
+ * suitability beside them comes from {@link LandmarkType#suitability} rather than being recomputed
+ * here — a readout with its own copy of the rule explains the wrong thing the moment the two drift.
  */
 public class Here implements PlayerCommandExecutor {
 
@@ -73,25 +86,79 @@ public class Here implements PlayerCommandExecutor {
         + "large <white>%.2f", profile.impactZoneThreshold(), profile.cratersPerZone(),
         profile.largeCraterShare()));
 
-    sendLandmarks(player, region, blockX, blockZ);
+    TerrainQuery terrain = engine.land(player.getWorld()).terrainQuery();
+
+    sendTerrain(player, terrain.at(blockX, blockZ));
+    sendLandmarks(player, region, terrain, blockX, blockZ);
     sendRoutes(player, blockX, blockZ);
     sendState(player, location);
   }
 
-  private void sendLandmarks(Player player, RegionProfile region, int blockX, int blockZ) {
+  /**
+   * Reports what the generator puts on the ground here, and what could be built on it.
+   *
+   * <p>Printed compactly rather than one measurement per line: this command already runs to a dozen
+   * lines, and a readout long enough to scroll its own top away is one nobody reads twice.
+   */
+  private void sendTerrain(Player player, SiteGround ground) {
+    if (!ground.dryLand()) {
+      line(player, "Terrain    <aqua>open water</aqua> <dark_gray>— nothing can be sited here");
+      return;
+    }
+
+    line(player, text("Terrain    water <white>%.2f</white>  river <white>%.2f</white>  "
+        + "relief <white>%.2f", ground.water(), ground.river(), ground.relief()));
+    line(player, text("           enclosure <white>%.2f</white>  valley <white>%.2f</white>  "
+        + "open <white>%.2f", ground.enclosure(), ground.valley(), ground.openness()));
+
+    List<String> suits = new ArrayList<>();
+
+    for (LandmarkType type : LandmarkType.values()) {
+      // Only the types the ground can rule on. The rest score 1 anywhere dry, and a column of ones
+      // teaches nothing.
+      if (type.needsParticularGround()) {
+        suits.add(text("%s <white>%.2f</white>",
+            type.name().toLowerCase(Locale.ROOT), type.suitability(ground)));
+      }
+    }
+
+    line(player, "Suits      " + String.join("  ", suits)
+        + " <dark_gray>— everything else needs only dry land");
+  }
+
+  private void sendLandmarks(
+      Player player,
+      RegionProfile region,
+      TerrainQuery terrain,
+      int blockX,
+      int blockZ
+  ) {
     if (region.onLandmark()) {
       Landmark mark = region.landmark().orElseThrow();
-      line(player, text("Landmark   standing on <aqua>%s</aqua> <dark_gray>(radius %d)",
-          mark.type(), mark.radius()));
+      line(player, text("Landmark   standing on <aqua>%s</aqua> <dark_gray>(radius %d, suits its "
+          + "ground %.2f)", mark.type(), mark.radius(), suits(mark, terrain)));
       return;
     }
 
     region.nearestLandmark().ifPresent(mark -> line(player, text(
-        "Landmark   <aqua>%s</aqua> <gray>at <white>%d, %d</white>, %d blocks %s",
+        "Landmark   <aqua>%s</aqua> <gray>at <white>%d, %d</white>, %d blocks %s "
+            + "<dark_gray>(suits its ground %.2f)",
         mark.type(), mark.centerX(), mark.centerZ(),
         Math.round(mark.distanceTo(blockX, blockZ)),
-        Bearing.of(mark.centerX() - (double) blockX, mark.centerZ() - (double) blockZ)
+        Bearing.of(mark.centerX() - (double) blockX, mark.centerZ() - (double) blockZ),
+        suits(mark, terrain)
     )));
+  }
+
+  /**
+   * Returns how well a landmark suits the ground it actually stands on.
+   *
+   * <p>Measured at the site rather than where the player is standing, which is the whole use of it:
+   * the question a landmark raises is never "is this ground good" but "did that thing over there
+   * have any business being built where it is".
+   */
+  private static double suits(Landmark mark, TerrainQuery terrain) {
+    return mark.type().suitability(terrain.at(mark.centerX(), mark.centerZ()));
   }
 
   /**

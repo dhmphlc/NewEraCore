@@ -1,6 +1,7 @@
 package com.edysmajler.neweracore.world.terrain;
 
 import com.edysmajler.neweracore.world.history.SiteTerrain;
+import com.edysmajler.neweracore.world.history.TerrainQuery;
 import org.bukkit.World;
 
 /**
@@ -55,6 +56,44 @@ public interface LandLookup {
    */
   default boolean isRugged(int blockX, int blockZ) {
     return false;
+  }
+
+  /**
+   * Returns what kind of ground is at a point, as the richer terrain seam reads it.
+   *
+   * <p>Derived from the two questions this interface already answers, so an implementation that
+   * only knows land from sea still gives usable ground. {@link #of(World)} overrides it to settle
+   * all three from a single biome lookup, because asking twice about the same block costs twice as
+   * much and tells you nothing new.
+   *
+   * @param blockX absolute block x
+   * @param blockZ absolute block z
+   * @return the kind of ground
+   */
+  default TerrainQuery.Ground ground(int blockX, int blockZ) {
+    if (!isLand(blockX, blockZ)) {
+      return TerrainQuery.Ground.OCEAN;
+    }
+
+    return isRugged(blockX, blockZ) ? TerrainQuery.Ground.RUGGED : TerrainQuery.Ground.OPEN;
+  }
+
+  /**
+   * Returns this lookup as the area-describing seam.
+   *
+   * <p>The successor to {@link #siteTerrain()}: the same constraint — nothing generated, and
+   * everything a function of the seed — but describing the ground around a site rather than
+   * answering three booleans about the point it stands on.
+   *
+   * @return the terrain query
+   */
+  default TerrainQuery terrainQuery() {
+    return new TerrainQuery() {
+      @Override
+      public Ground groundAt(int blockX, int blockZ) {
+        return ground(blockX, blockZ);
+      }
+    };
   }
 
   /**
@@ -115,17 +154,39 @@ public interface LandLookup {
     return new LandLookup() {
       @Override
       public boolean isLand(int blockX, int blockZ) {
+        return !isWaterName(nameAt(blockX, blockZ));
+      }
+
+      @Override
+      public TerrainQuery.Ground ground(int blockX, int blockZ) {
+        // One lookup settles all three questions. The categories are exclusive because a biome key
+        // is one string: Mojang does not name anything both a river and a hill.
         String name = nameAt(blockX, blockZ);
-        return !name.contains("ocean") && !name.contains("river");
+
+        if (name.contains("river")) {
+          return TerrainQuery.Ground.RIVER;
+        }
+
+        if (name.contains("ocean")) {
+          return TerrainQuery.Ground.OCEAN;
+        }
+
+        return isRuggedName(name) ? TerrainQuery.Ground.RUGGED : TerrainQuery.Ground.OPEN;
       }
 
       @Override
       public boolean isRugged(int blockX, int blockZ) {
-        String name = nameAt(blockX, blockZ);
+        return isRuggedName(nameAt(blockX, blockZ));
+      }
 
-        // Read off the biome's own name. Mojang names the broken ground exactly what it is, so this
-        // catches every peak, hill and slope including any a future version adds — and it costs one
-        // question of the generator rather than a chunk load.
+      private boolean isWaterName(String name) {
+        return name.contains("ocean") || name.contains("river");
+      }
+
+      // Read off the biome's own name. Mojang names the broken ground exactly what it is, so this
+      // catches every peak, hill and slope including any a future version adds — and it costs one
+      // question of the generator rather than a chunk load.
+      private boolean isRuggedName(String name) {
         return name.contains("peaks")
             || name.contains("hills")
             || name.contains("slopes")

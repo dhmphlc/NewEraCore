@@ -4,7 +4,9 @@ import com.edysmajler.neweracore.config.HistoryConfig;
 import com.edysmajler.neweracore.config.LandmarkConfig;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Where the landmarks are.
@@ -30,16 +32,37 @@ import java.util.Optional;
  * <p>Both questions are answered from the world generator rather than from loaded chunks, so a
  * landmark stays knowable from arbitrarily far away — which is what lets a road aim at one from two
  * thousand blocks off.
+ *
+ * <p>A resolved cell is <strong>remembered</strong>, which is the one piece of mutable state in
+ * this package and needs justifying. Every question about a position walks the nine cells around
+ * it, so a chunk that asks about its own centre asks about nine cells, and the next chunk along
+ * asks about most of the same nine. Asking the ground is not free — it is a question to the world
+ * generator per sampled point — so without this the same cell is resolved from scratch for every
+ * chunk in it, and a cell is 1500 blocks across: getting on for nine thousand chunks, each
+ * repeating work whose answer cannot have changed.
+ *
+ * <p>It is safe because it is a memo and not state: the value for a cell is a pure function of the
+ * seed, so any thread that computes it computes the same answer, and two threads racing to fill the
+ * same key simply agree. The map is bounded and dropped wholesale when it fills, because a memo
+ * that grows without limit as a player explores is a leak, and losing one is free — the answer is
+ * recomputed, never wrong.
  */
 public final class LandmarkMap {
 
   private static final long SITE_SALT = 0x1A4DBA12L;
+
+  /**
+   * How many resolved cells to remember. At the validated spacing this is a region some ninety
+   * thousand blocks across, so in practice a session never reaches it.
+   */
+  private static final int REMEMBERED_CELLS = 4096;
 
   private final long worldSeed;
   private final LandmarkConfig config;
   private final HistoryConfig history;
   private final HistoryMaps maps;
   private final SiteTerrain terrain;
+  private final Map<Long, Optional<Landmark>> resolved = new ConcurrentHashMap<>();
 
   /**
    * Builds the map for one world.
@@ -153,6 +176,27 @@ public final class LandmarkMap {
    * @return the site
    */
   public Optional<Landmark> siteIn(int cellX, int cellZ) {
+    long key = ((long) cellX << 32) | (cellZ & 0xFFFFFFFFL);
+    Optional<Landmark> remembered = resolved.get(key);
+
+    if (remembered != null) {
+      return remembered;
+    }
+
+    Optional<Landmark> site = resolveSiteIn(cellX, cellZ);
+
+    if (resolved.size() >= REMEMBERED_CELLS) {
+      // Dropping the lot beats evicting cleverly: every entry is recomputable, and the alternative
+      // is bookkeeping about which cell a player might walk back into.
+      resolved.clear();
+    }
+
+    resolved.put(key, site);
+
+    return site;
+  }
+
+  private Optional<Landmark> resolveSiteIn(int cellX, int cellZ) {
     long hash = mix(worldSeed ^ SITE_SALT, cellX, cellZ);
 
     if (unitFrom(hash) >= config.getChance()) {
@@ -184,6 +228,14 @@ public final class LandmarkMap {
    * ocean.
    */
   private LandmarkType typeAt(int centerX, int centerZ, long hash) {
+    // Dry ground is the same answer for every candidate type, so it is asked once here. Left inside
+    // the loop it was asked once per type — seven identical questions to the generator about one
+    // block — and it also means a site at sea costs one question instead of resolving a story and a
+    // full candidate list on the way to placing nothing.
+    if (!terrain.isDryLand(centerX, centerZ)) {
+      return null;
+    }
+
     RegionStory story = RegionStory.of(
         history,
         maps.war().at(centerX, centerZ),
@@ -193,7 +245,7 @@ public final class LandmarkMap {
 
     List<LandmarkType> candidates = new ArrayList<>();
     for (LandmarkType type : LandmarkType.fitting(story)) {
-      if (type.canStandAt(terrain, centerX, centerZ)) {
+      if (type.suitsGround(terrain, centerX, centerZ)) {
         candidates.add(type);
       }
     }
