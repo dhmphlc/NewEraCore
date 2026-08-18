@@ -4,6 +4,7 @@ import com.edysmajler.neweracore.config.InfrastructureConfig;
 import com.edysmajler.neweracore.world.ChunkContext;
 import com.edysmajler.neweracore.world.ChunkProcessor;
 import java.util.List;
+import org.bukkit.Material;
 
 /**
  * Draws the slice of the network that passes through one chunk.
@@ -30,6 +31,10 @@ public final class InfrastructureProcessor implements ChunkProcessor {
 
   private static final int SIZE = ChunkContext.CHUNK_SIZE;
 
+  private static final Material RUNWAY = Material.GRAY_CONCRETE;
+  private static final Material MARKING = Material.LIGHT_GRAY_CONCRETE;
+  private static final Material SHOULDER = Material.GRAVEL;
+
   @Override
   public String name() {
     return "infrastructure";
@@ -46,6 +51,7 @@ public final class InfrastructureProcessor implements ChunkProcessor {
         .routesNear(context.blockX(8), context.blockZ(8), CHUNK_REACH);
 
     if (routes.isEmpty()) {
+      buildAirfields(context, config);
       return;
     }
 
@@ -53,12 +59,81 @@ public final class InfrastructureProcessor implements ChunkProcessor {
     RouteType[] lane = new RouteType[SIZE * SIZE];
     boolean[] middle = new boolean[SIZE * SIZE];
     boolean[] edge = new boolean[SIZE * SIZE];
+    boolean[] alongX = new boolean[SIZE * SIZE];
 
     for (Route route : routes) {
-      plot(context, route, lane, middle, edge);
+      plot(context, route, lane, middle, edge, alongX);
     }
 
-    build(context, config, lane, middle, edge);
+    build(context, config, lane, middle, edge, alongX);
+    buildAirfields(context, config);
+  }
+
+  /**
+   * Cuts and fills a runway flat, and paves it.
+   *
+   * <p>Built after the roads, so a highway arriving at an airport stops at the perimeter instead of
+   * running across the strip. Levelling is what makes it a runway at all: an aircraft cannot land
+   * on a gradient, so here the ground gives way to the structure rather than the other way round.
+   */
+  private static void buildAirfields(ChunkContext context, InfrastructureConfig config) {
+    List<Airfield> airfields = context.infrastructure().airfieldsNear(
+        context.blockX(8), context.blockZ(8), CHUNK_REACH + config.getApproachReach());
+
+    for (Airfield airfield : airfields) {
+      for (int x = 0; x < SIZE; x++) {
+        for (int z = 0; z < SIZE; z++) {
+          buildAirfieldColumn(context, config, airfield, x, z);
+        }
+      }
+    }
+  }
+
+  /**
+   * Builds, or merely clears, one column of an airfield.
+   */
+  private static void buildAirfieldColumn(
+      ChunkContext context,
+      InfrastructureConfig config,
+      Airfield airfield,
+      int x,
+      int z
+  ) {
+    int blockX = context.blockX(x);
+    int blockZ = context.blockZ(z);
+
+    if (airfield.covers(blockX, blockZ)) {
+      context.reserve(x, z);
+
+      if (!Earthworks.levelTo(context, x, z, airfield.platformY(), config.getClearance())) {
+        // The far end ran out over ground too low to fill. Better a gap than a plinth.
+        return;
+      }
+
+      context.set(x, airfield.platformY(), z, surfaceOf(airfield, blockX, blockZ));
+      return;
+    }
+
+    // Off the built ground, but perhaps under the approach: take the top off anything in the way
+    // and leave everything below it exactly as it was. A hill beside a runway is not a paving
+    // problem.
+    int ceiling = airfield.ceilingAt(
+        blockX, blockZ, config.getApproachReach(), config.getApproachSlope());
+
+    if (ceiling != Integer.MAX_VALUE && context.groundY(x, z) > ceiling) {
+      Earthworks.clearAbove(context, x, z, ceiling);
+    }
+  }
+
+  /**
+   * Returns what one square of an airfield is made of.
+   */
+  private static Material surfaceOf(Airfield airfield, int blockX, int blockZ) {
+    if (!airfield.isPaved(blockX, blockZ)) {
+      return SHOULDER;
+    }
+
+    return airfield.isMarking(blockX, blockZ) ? MARKING : RUNWAY;
   }
 
   /**
@@ -69,10 +144,14 @@ public final class InfrastructureProcessor implements ChunkProcessor {
       Route route,
       RouteType[] lane,
       boolean[] middle,
-      boolean[] edge
+      boolean[] edge,
+      boolean[] alongX
   ) {
     RoutePath path = route.path();
     RouteType type = route.type();
+    // Which way the line runs here, so a wire can be laid along it rather than left dangling
+    boolean runsEastWest = Math.abs(route.to().centerX() - route.from().centerX())
+        >= Math.abs(route.to().centerZ() - route.from().centerZ());
     double half = type.halfWidth();
     int reach = (int) Math.ceil(half);
 
@@ -107,6 +186,7 @@ public final class InfrastructureProcessor implements ChunkProcessor {
 
           edge[index] |= distance > half - 1.0;
           middle[index] |= distance <= 1.0;
+          alongX[index] = runsEastWest;
         }
       }
     }
@@ -120,7 +200,8 @@ public final class InfrastructureProcessor implements ChunkProcessor {
       InfrastructureConfig config,
       RouteType[] lane,
       boolean[] middle,
-      boolean[] edge
+      boolean[] edge,
+      boolean[] alongX
   ) {
     for (int x = 0; x < SIZE; x++) {
       for (int z = 0; z < SIZE; z++) {
@@ -139,7 +220,7 @@ public final class InfrastructureProcessor implements ChunkProcessor {
         Roadbed.build(context, config, type, edge[index] && !middle[index], x, z);
 
         if (type == RouteType.POWER_LINE && middle[index]) {
-          PowerLine.build(context, config, x, z);
+          PowerLine.build(context, config, alongX[index], x, z);
         }
       }
     }

@@ -29,7 +29,7 @@ class RouteNetworkTest {
 
   private final WorldEngineConfig config = new WorldEngineConfig();
   private final HistoryEngine history = new HistoryEngine(SEED, config);
-  private final InfrastructureEngine engine = new InfrastructureEngine(history, config, SEED);
+  private final InfrastructureEngine engine = new InfrastructureEngine(history, config, 63, SEED);
   private final RouteNetwork network = engine.network();
 
   @Test
@@ -142,9 +142,9 @@ class RouteNetworkTest {
   @Test
   void routesAreTheSameForTheSameSeed() {
     InfrastructureEngine same = new InfrastructureEngine(
-        new HistoryEngine(SEED, config), config, SEED);
+        new HistoryEngine(SEED, config), config, 63, SEED);
     InfrastructureEngine other = new InfrastructureEngine(
-        new HistoryEngine(SEED + 1, config), config, SEED + 1);
+        new HistoryEngine(SEED + 1, config), config, 63, SEED + 1);
 
     assertEquals(describe(engine.routesNear(0, 0, 400.0)),
         describe(same.routesNear(0, 0, 400.0)));

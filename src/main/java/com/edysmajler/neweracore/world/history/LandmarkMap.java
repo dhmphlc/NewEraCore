@@ -20,10 +20,16 @@ import java.util.Optional;
  * within the middle of it, so two sites either side of a border can never end up neighbours. And
  * some cells hold nothing, which turns a regular lattice into a spread of distances.
  *
- * <p>The type is chosen from the history at the site itself, so a silo lands in a war zone and a
- * dam in a green valley. Nothing here reads the terrain: that would need chunks loaded, and a
- * landmark has to be knowable from arbitrarily far away. A generator that needs a river under its
- * dam can refuse the site when it gets there.
+ * <p>The type is chosen from two questions about the site, never from a bare roll. Its
+ * <em>story</em> decides whether the place belongs in this region — a silo in a war zone, not in a
+ * valley the fighting never reached. Its <em>ground</em> decides whether the place could have been
+ * built here at all: a hydroelectric dam wants a river to hold back, and one standing on dry flat
+ * land in the middle of nowhere is worse than no landmark, because it tells the player nothing was
+ * thought about.
+ *
+ * <p>Both questions are answered from the world generator rather than from loaded chunks, so a
+ * landmark stays knowable from arbitrarily far away — which is what lets a road aim at one from two
+ * thousand blocks off.
  */
 public final class LandmarkMap {
 
@@ -33,6 +39,7 @@ public final class LandmarkMap {
   private final LandmarkConfig config;
   private final HistoryConfig history;
   private final HistoryMaps maps;
+  private final SiteTerrain terrain;
 
   /**
    * Builds the map for one world.
@@ -40,12 +47,19 @@ public final class LandmarkMap {
    * @param worldSeed the world seed
    * @param history the history settings
    * @param maps the world's history layers, used to pick a type that suits the place
+   * @param terrain what the ground is like, so a dam is not built where there is no water
    */
-  public LandmarkMap(long worldSeed, HistoryConfig history, HistoryMaps maps) {
+  public LandmarkMap(
+      long worldSeed,
+      HistoryConfig history,
+      HistoryMaps maps,
+      SiteTerrain terrain
+  ) {
     this.worldSeed = worldSeed;
     this.config = history.getLandmarks();
     this.history = history;
     this.maps = maps;
+    this.terrain = terrain;
   }
 
   /**
@@ -155,11 +169,19 @@ public final class LandmarkMap {
     int centerZ = cellZ * spacing
         + (int) ((margin + unitFrom(mix(positionHash, 1, 1)) * jitter) * spacing);
 
-    return Optional.of(new Landmark(typeAt(centerX, centerZ, hash), centerX, centerZ));
+    LandmarkType type = typeAt(centerX, centerZ, hash);
+
+    return type == null
+        ? Optional.empty()
+        : Optional.of(new Landmark(type, centerX, centerZ));
   }
 
   /**
-   * Picks a type that suits what happened at the site.
+   * Picks a type that suits both what happened at the site and what the ground there is.
+   *
+   * <p>Returns null when nothing could stand here — out at sea, most obviously. An empty cell is
+   * the honest answer; forcing a type onto ground that cannot hold it is what put a hospital in an
+   * ocean.
    */
   private LandmarkType typeAt(int centerX, int centerZ, long hash) {
     RegionStory story = RegionStory.of(
@@ -169,7 +191,17 @@ public final class LandmarkMap {
         maps.restoration().at(centerX, centerZ)
     );
 
-    List<LandmarkType> candidates = LandmarkType.fitting(story);
+    List<LandmarkType> candidates = new ArrayList<>();
+    for (LandmarkType type : LandmarkType.fitting(story)) {
+      if (type.canStandAt(terrain, centerX, centerZ)) {
+        candidates.add(type);
+      }
+    }
+
+    if (candidates.isEmpty()) {
+      return null;
+    }
+
     int index = (int) (unitFrom(mix(hash, 0xC0FFEEL, 0xBEEFL)) * candidates.size());
 
     return candidates.get(Math.min(index, candidates.size() - 1));

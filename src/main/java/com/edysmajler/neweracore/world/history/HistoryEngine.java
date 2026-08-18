@@ -39,10 +39,21 @@ public final class HistoryEngine {
    * @param config the world engine settings
    */
   public HistoryEngine(long worldSeed, WorldEngineConfig config) {
+    this(worldSeed, config, SiteTerrain.ANYWHERE);
+  }
+
+  /**
+   * Builds the history of one world, with ground the siting can consult.
+   *
+   * @param worldSeed the world seed
+   * @param config the world engine settings
+   * @param terrain what the ground is like, so a dam is not sited where there is no water
+   */
+  public HistoryEngine(long worldSeed, WorldEngineConfig config, SiteTerrain terrain) {
     this.config = config;
     this.fields = new NoiseFields(worldSeed, config.getNoise());
     this.maps = new HistoryMaps(worldSeed, config.getHistory());
-    this.landmarks = new LandmarkMap(worldSeed, config.getHistory(), maps);
+    this.landmarks = new LandmarkMap(worldSeed, config.getHistory(), maps, terrain);
   }
 
   /**

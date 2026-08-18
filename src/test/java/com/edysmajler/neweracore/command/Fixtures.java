@@ -1,7 +1,9 @@
 package com.edysmajler.neweracore.command;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.edysmajler.neweracore.config.HistoryConfig;
@@ -14,6 +16,7 @@ import com.edysmajler.neweracore.config.ThresholdConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
 import com.edysmajler.neweracore.world.ChunkMarker;
 import com.edysmajler.neweracore.world.WorldEngine;
+import com.edysmajler.neweracore.world.terrain.LandLookup;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -98,7 +101,12 @@ final class Fixtures {
   }
 
   /**
-   * Returns an engine over the given config, reporting every chunk as already transformed.
+   * Returns an engine over the given config, with the chunk mark and the ground both stubbed.
+   *
+   * <p>The land lookup has to be replaced rather than fed: the real one asks the world generator
+   * for a biome, and {@code Biome} cannot be produced or even mocked outside a running server. What
+   * the lookup itself decides is covered where it is decided — {@code CraterSitesTest} and {@code
+   * SiteTerrainTest} — with no Bukkit involved at all.
    *
    * @param config the plugin config to read
    * @param transformed what the chunk mark should report
@@ -108,12 +116,15 @@ final class Fixtures {
     ChunkMarker marker = mock(ChunkMarker.class);
     when(marker.isTransformed(any())).thenReturn(transformed);
 
-    return new WorldEngine(
+    WorldEngine engine = spy(new WorldEngine(
         config.getWorldEngine(),
         marker,
         List.of(),
         Logger.getAnonymousLogger()
-    );
+    ));
+
+    doReturn(LandLookup.EVERYWHERE).when(engine).land(any());
+    return engine;
   }
 
   /**

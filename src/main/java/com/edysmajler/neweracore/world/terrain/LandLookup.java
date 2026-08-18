@@ -1,5 +1,6 @@
 package com.edysmajler.neweracore.world.terrain;
 
+import com.edysmajler.neweracore.world.history.SiteTerrain;
 import org.bukkit.World;
 
 /**
@@ -28,6 +29,12 @@ public interface LandLookup {
   /** Treats everywhere as land, for tests and for worlds with no generator to ask. */
   LandLookup EVERYWHERE = (blockX, blockZ) -> true;
 
+  /** How far out to look for water when deciding whether a place is on a shore. */
+  int WATERSIDE_REACH = 72;
+
+  /** How many points around a site are sampled when looking for water. */
+  int WATERSIDE_SAMPLES = 8;
+
   /**
    * Returns whether a position is on land rather than out at sea.
    *
@@ -36,6 +43,57 @@ public interface LandLookup {
    * @return true when the generator puts land here
    */
   boolean isLand(int blockX, int blockZ);
+
+  /**
+   * Returns whether the ground here is hills rather than open country.
+   *
+   * <p>Defaults to open, so a caller with nothing to say places everything as before.
+   *
+   * @param blockX absolute block x
+   * @param blockZ absolute block z
+   * @return true when the ground is broken enough that nothing wants to be built across it
+   */
+  default boolean isRugged(int blockX, int blockZ) {
+    return false;
+  }
+
+  /**
+   * Returns this lookup as the seam the landmark siting reads.
+   *
+   * <p>Waterside is derived rather than asked for: a ring of points around the site, and if any of
+   * them is water then there is something here to dam or to cross. Sampling a ring rather than the
+   * centre is the whole point — a dam stands <em>beside</em> the water it holds back, never in it.
+   *
+   * @return the terrain seam
+   */
+  default SiteTerrain siteTerrain() {
+    return new SiteTerrain() {
+      @Override
+      public boolean isDryLand(int blockX, int blockZ) {
+        return isLand(blockX, blockZ);
+      }
+
+      @Override
+      public boolean isWaterside(int blockX, int blockZ) {
+        for (int i = 0; i < WATERSIDE_SAMPLES; i++) {
+          double angle = i * 2.0 * Math.PI / WATERSIDE_SAMPLES;
+          int x = blockX + (int) Math.round(Math.cos(angle) * WATERSIDE_REACH);
+          int z = blockZ + (int) Math.round(Math.sin(angle) * WATERSIDE_REACH);
+
+          if (!isLand(x, z)) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+
+      @Override
+      public boolean isOpen(int blockX, int blockZ) {
+        return !isRugged(blockX, blockZ);
+      }
+    };
+  }
 
   /**
    * Returns a lookup over a world's generator.
@@ -54,9 +112,31 @@ public interface LandLookup {
   static LandLookup of(World world) {
     int seaLevel = world.getSeaLevel();
 
-    return (blockX, blockZ) -> {
-      String name = world.getComputedBiome(blockX, seaLevel, blockZ).getKey().value();
-      return !name.contains("ocean") && !name.contains("river");
+    return new LandLookup() {
+      @Override
+      public boolean isLand(int blockX, int blockZ) {
+        String name = nameAt(blockX, blockZ);
+        return !name.contains("ocean") && !name.contains("river");
+      }
+
+      @Override
+      public boolean isRugged(int blockX, int blockZ) {
+        String name = nameAt(blockX, blockZ);
+
+        // Read off the biome's own name. Mojang names the broken ground exactly what it is, so this
+        // catches every peak, hill and slope including any a future version adds — and it costs one
+        // question of the generator rather than a chunk load.
+        return name.contains("peaks")
+            || name.contains("hills")
+            || name.contains("slopes")
+            || name.contains("windswept")
+            || name.contains("badlands")
+            || name.contains("mountain");
+      }
+
+      private String nameAt(int blockX, int blockZ) {
+        return world.getComputedBiome(blockX, seaLevel, blockZ).getKey().value();
+      }
     };
   }
 }

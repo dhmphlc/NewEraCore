@@ -92,7 +92,7 @@ world-engine:
     restoration-influence: 0.55
 
     # Rare places worth setting out for: silos, radio towers, dams, hospitals, military bases,
-    # airports, research facilities, big bridges. Locations only for now — nothing is built on them
+    # airports, research facilities. Locations only for now — nothing is built on them
     # yet. The type is chosen from the history at the site, so a silo lands in a war zone and a dam
     # in a green valley.
     landmarks:
@@ -122,6 +122,26 @@ world-engine:
     pylon-spacing: 24
     pylon-height: 9
     bridge-pillar-spacing: 8
+
+    # RUNWAYS. Roads ride over hills because real roads do. A runway is the opposite kind of thing —
+    # an aircraft cannot land on a gradient — so here the ground gives way to the structure: cut into
+    # the hill at one end, filled up over the hollow at the other, one height from end to end.
+    #
+    # A site can have an engineered grade where a route cannot, because it is a fixed rectangle at
+    # fixed coordinates: its height comes from the seed, so every chunk agrees on it without asking.
+    # `runway-lift` is how far above SEA LEVEL a platform may sit — sea level being the one global
+    # height a world gives away for free.
+    runway-length: 260
+    runway-width: 18       # the paved strip; a levelled shoulder runs 4 blocks either side
+    runway-lift: 10
+
+    # An aircraft also has to get down onto the strip and back off it, and it cannot fly through a
+    # hill sitting off the end of the runway. Anything poking above a surface that rises one block
+    # per `approach-slope` blocks outward gets its top taken off — real airfields call this the
+    # obstacle limitation surface, and it is why an airport is a wide flat PLACE, not a flat line.
+    # Below the surface nothing is touched, so a valley beside a runway stays a valley.
+    approach-reach: 130
+    approach-slope: 7
 
   # Rare impacts big enough to span many chunks. These are the events the rest of the world is
   # reacting to, so they are huge and far apart. Sites sit on a coarse grid in world coordinates

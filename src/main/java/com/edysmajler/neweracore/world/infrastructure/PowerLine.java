@@ -2,7 +2,11 @@ package com.edysmajler.neweracore.world.infrastructure;
 
 import com.edysmajler.neweracore.config.InfrastructureConfig;
 import com.edysmajler.neweracore.world.ChunkContext;
+import org.bukkit.Axis;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Orientable;
 
 /**
  * Stands the pylons up and runs the wire between them.
@@ -29,10 +33,17 @@ public final class PowerLine {
    *
    * @param context the chunk being transformed
    * @param config the infrastructure settings
+   * @param alongX whether the line runs more east-west than north-south here
    * @param x chunk-relative x, 0-15
    * @param z chunk-relative z, 0-15
    */
-  public static void build(ChunkContext context, InfrastructureConfig config, int x, int z) {
+  public static void build(
+      ChunkContext context,
+      InfrastructureConfig config,
+      boolean alongX,
+      int x,
+      int z
+  ) {
     if (context.isFluidColumn(x, z)) {
       return;
     }
@@ -44,30 +55,59 @@ public final class PowerLine {
     int blockZ = context.blockZ(z);
 
     if ((blockX + blockZ) % config.getPylonSpacing() == 0) {
-      raisePylon(context, x, groundY, wireY, z);
+      raisePylon(context, x, groundY, wireY, z, alongX);
       return;
     }
 
     if (context.typeAt(x, wireY, z).isAir()) {
-      context.set(x, wireY, z, WIRE);
+      context.set(x, wireY, z, wire(alongX ? Axis.X : Axis.Z));
     }
   }
 
-  private static void raisePylon(ChunkContext context, int x, int groundY, int wireY, int z) {
+  /**
+   * Returns a chain lying along an axis.
+   *
+   * <p>A chain hangs vertically unless it is told not to, which is what a run of them along a power
+   * line looked like: a row of short dangling links rather than a cable. Laying them along the
+   * line's own direction is the whole difference between the two.
+   */
+  private static BlockData wire(Axis axis) {
+    BlockData data = Bukkit.createBlockData(WIRE);
+
+    if (data instanceof Orientable orientable) {
+      orientable.setAxis(axis);
+      return orientable;
+    }
+
+    return data;
+  }
+
+  private static void raisePylon(
+      ChunkContext context,
+      int x,
+      int groundY,
+      int wireY,
+      int z,
+      boolean alongX
+  ) {
     for (int y = groundY + 1; y <= wireY; y++) {
       if (context.typeAt(x, y, z).isAir()) {
         context.set(x, y, z, PYLON);
       }
     }
 
-    // A crossarm, so the silhouette is a pylon rather than a post
+    // A crossarm across the line, not along it, so the silhouette reads as a pylon rather than a
+    // post
     for (int offset = -2; offset <= 2; offset++) {
-      if (offset == 0 || !context.inChunk(x + offset, z)) {
+      int armX = alongX ? x : x + offset;
+      int armZ = alongX ? z + offset : z;
+
+      if (offset == 0 || !context.inChunk(armX, armZ)) {
         continue;
       }
 
-      if (context.typeAt(x + offset, wireY, z).isAir()) {
-        context.set(x + offset, wireY, z, PYLON);
+      if (context.typeAt(armX, wireY, armZ).isAir()) {
+        context.set(armX, wireY, armZ, PYLON);
       }
     }
   }

@@ -4,6 +4,7 @@ import com.crimsonwarpedcraft.cwcommons.command.BaseCommand;
 import com.edysmajler.neweracore.config.PluginConfig;
 import com.edysmajler.neweracore.world.WorldEngine;
 import dev.jorel.commandapi.CommandAPICommand;
+import dev.jorel.commandapi.arguments.MultiLiteralArgument;
 import org.bukkit.plugin.Plugin;
 
 /**
@@ -35,6 +36,13 @@ public class NewEraCoreCommand extends BaseCommand {
             .withSubcommand(
                 new CommandAPICommand("craters")
                     .executesPlayer(new FindCraters(config, engine))
+            )
+            // A literal per kind rather than free text, so the client completes them and a typo
+            // never reaches the executor
+            .withSubcommand(
+                new CommandAPICommand("locate")
+                    .withArguments(new MultiLiteralArgument(Locate.TARGET, Locate.targets()))
+                    .executesPlayer(new Locate(config, engine))
             )
     );
   }

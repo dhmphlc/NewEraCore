@@ -102,7 +102,7 @@ public class WorldEngine implements Listener {
   public HistoryEngine history(World world) {
     return historyByWorld.computeIfAbsent(
         world.getUID(),
-        unused -> new HistoryEngine(world.getSeed(), config)
+        unused -> new HistoryEngine(world.getSeed(), config, land(world).siteTerrain())
     );
   }
 
@@ -118,7 +118,8 @@ public class WorldEngine implements Listener {
   public InfrastructureEngine infrastructure(World world) {
     return networkByWorld.computeIfAbsent(
         world.getUID(),
-        unused -> new InfrastructureEngine(history(world), config, world.getSeed())
+        unused -> new InfrastructureEngine(
+            history(world), config, world.getSeaLevel(), world.getSeed())
     );
   }
 

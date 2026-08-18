@@ -1,7 +1,11 @@
 package com.edysmajler.neweracore.world.infrastructure;
 
+import com.edysmajler.neweracore.config.InfrastructureConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
 import com.edysmajler.neweracore.world.history.HistoryEngine;
+import com.edysmajler.neweracore.world.history.Landmark;
+import com.edysmajler.neweracore.world.history.LandmarkMap;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -31,21 +35,60 @@ public final class InfrastructureEngine {
   private static final double SEARCH_REACH = 1200.0;
 
   private final RouteNetwork network;
+  private final LandmarkMap landmarks;
+  private final InfrastructureConfig config;
+  private final int seaLevel;
+  private final long worldSeed;
 
   /**
    * Builds the infrastructure of one world.
    *
    * @param history the world's simulated history, which owns the places being joined
    * @param config the world engine settings
+   * @param seaLevel the world's sea level, which anchors anything that has to be level
    * @param worldSeed the world seed
    */
-  public InfrastructureEngine(HistoryEngine history, WorldEngineConfig config, long worldSeed) {
+  public InfrastructureEngine(
+      HistoryEngine history,
+      WorldEngineConfig config,
+      int seaLevel,
+      long worldSeed
+  ) {
+    this.landmarks = history.landmarks();
+    this.config = config.getInfrastructure();
+    this.seaLevel = seaLevel;
+    this.worldSeed = worldSeed;
     this.network = new RouteNetwork(
-        history.landmarks(),
+        landmarks,
         config.getInfrastructure(),
         config.getHistory().getLandmarks().getSpacing(),
         worldSeed
     );
+  }
+
+  /**
+   * Returns every runway reaching a position.
+   *
+   * <p>Separate from the routes because a runway is not a way between two places: it belongs to
+   * one, it is dead straight, and it is level whatever the ground underneath was doing.
+   *
+   * @param blockX absolute block x
+   * @param blockZ absolute block z
+   * @param reach how far to look, in blocks
+   * @return the airfields, usually none
+   */
+  public List<Airfield> airfieldsNear(int blockX, int blockZ, double reach) {
+    List<Airfield> found = new ArrayList<>();
+
+    for (Landmark site : landmarks.near(blockX, blockZ)) {
+      Airfield airfield = Airfield.at(site, config, seaLevel, worldSeed);
+
+      if (airfield != null && site.distanceTo(blockX, blockZ) <= airfield.reach() + reach) {
+        found.add(airfield);
+      }
+    }
+
+    return found;
   }
 
   /**

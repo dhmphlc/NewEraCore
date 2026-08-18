@@ -3,10 +3,12 @@ package com.edysmajler.neweracore.world;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +21,7 @@ import com.edysmajler.neweracore.config.NoiseConfig;
 import com.edysmajler.neweracore.config.OreConfig;
 import com.edysmajler.neweracore.config.ThresholdConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
+import com.edysmajler.neweracore.world.terrain.LandLookup;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -92,7 +95,8 @@ class WorldEngineTest {
     ChunkMarker marker = mock(ChunkMarker.class);
     WorldEngineConfig config = engineConfig(true);
 
-    new WorldEngine(config, marker, List.of(failing, second), Logger.getAnonymousLogger())
+    withStubbedGround(
+        new WorldEngine(config, marker, List.of(failing, second), Logger.getAnonymousLogger()))
         .onChunkLoad(event(true));
 
     // A broken stage must not stop the stages after it
@@ -116,12 +120,21 @@ class WorldEngineTest {
       ChunkMarker marker,
       boolean enabled
   ) {
-    return new WorldEngine(
+    return withStubbedGround(new WorldEngine(
         engineConfig(enabled),
         marker,
         List.of(processor),
         Logger.getAnonymousLogger()
-    );
+    ));
+  }
+
+  /**
+   * Replaces the land lookup, which would otherwise ask a mocked world for a biome it cannot make.
+   */
+  private static WorldEngine withStubbedGround(WorldEngine engine) {
+    WorldEngine spied = spy(engine);
+    doReturn(LandLookup.EVERYWHERE).when(spied).land(any());
+    return spied;
   }
 
   private static WorldEngineConfig engineConfig(boolean enabled) {

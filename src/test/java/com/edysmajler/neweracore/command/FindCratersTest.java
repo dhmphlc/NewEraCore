@@ -1,10 +1,7 @@
 package com.edysmajler.neweracore.command;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.edysmajler.neweracore.config.HugeCraterConfig;
@@ -24,7 +21,7 @@ class FindCratersTest {
   @Test
   void listsTheNearestCratersWithSomethingToWalkTowards() {
     PluginConfig config = Fixtures.config();
-    WorldEngine engine = onDryLand(Fixtures.engine(config, true));
+    WorldEngine engine = Fixtures.engine(config, true);
     World world = Fixtures.world();
     Player player = Fixtures.playerAt(world, 0, 0);
 
@@ -56,19 +53,6 @@ class FindCratersTest {
     );
   }
 
-  /**
-   * Returns the engine with its land lookup stubbed out.
-   *
-   * <p>The real one asks the world generator for a biome, and {@code Biome} cannot be produced or
-   * even mocked outside a running server — so the seam has to be replaced rather than fed. What the
-   * lookup itself decides is covered by {@code CraterSitesTest}, which needs no Bukkit at all.
-   */
-  private static WorldEngine onDryLand(WorldEngine engine) {
-    WorldEngine spied = spy(engine);
-    doReturn(LandLookup.EVERYWHERE).when(spied).land(any());
-    return spied;
-  }
-
   @Test
   void saysSoWhenThereAreNoneRatherThanNothing() {
     HugeCraterConfig none = mock(HugeCraterConfig.class);
@@ -78,7 +62,7 @@ class FindCratersTest {
     when(none.getRadiusMax()).thenReturn(36);
 
     PluginConfig config = Fixtures.config(none);
-    WorldEngine engine = onDryLand(Fixtures.engine(config, true));
+    WorldEngine engine = Fixtures.engine(config, true);
     World world = Fixtures.world();
     Player player = Fixtures.playerAt(world, 0, 0);
 

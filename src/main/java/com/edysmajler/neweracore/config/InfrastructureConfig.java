@@ -52,6 +52,31 @@ public class InfrastructureConfig {
   @JsonProperty("bridge-pillar-spacing")
   private int bridgePillarSpacing = 8;
 
+  @Min(60)
+  @Max(600)
+  @JsonProperty("runway-length")
+  private int runwayLength = 260;
+
+  @Min(6)
+  @Max(48)
+  @JsonProperty("runway-width")
+  private int runwayWidth = 18;
+
+  @Min(0)
+  @Max(24)
+  @JsonProperty("runway-lift")
+  private int runwayLift = 10;
+
+  @Min(0)
+  @Max(400)
+  @JsonProperty("approach-reach")
+  private int approachReach = 130;
+
+  @Min(2)
+  @Max(24)
+  @JsonProperty("approach-slope")
+  private int approachSlope = 7;
+
   /**
    * Returns whether anything is built between the landmarks at all.
    *
@@ -122,5 +147,65 @@ public class InfrastructureConfig {
    */
   public int getBridgePillarSpacing() {
     return bridgePillarSpacing;
+  }
+
+  /**
+   * Returns how long a runway is, in blocks.
+   *
+   * <p>Long enough to read as a runway from the air and from the ground, which is the only reason
+   * an airport is worth having as a landmark at all.
+   *
+   * @return the length
+   */
+  public int getRunwayLength() {
+    return runwayLength;
+  }
+
+  /**
+   * Returns how wide the paved strip of a runway is, in blocks.
+   *
+   * @return the width
+   */
+  public int getRunwayWidth() {
+    return runwayWidth;
+  }
+
+  /**
+   * Returns how far past the runway the ground has to stay out of the way, in blocks.
+   *
+   * <p>Levelling the strip is only half of it. An aircraft has to get down to the strip and back
+   * off it again, and it cannot fly through a hill sitting off the end of the runway. Real
+   * airfields call this the obstacle limitation surface, and it is the reason an airport is a wide
+   * flat place rather than a wide flat line.
+   *
+   * @return the approach reach
+   */
+  public int getApproachReach() {
+    return approachReach;
+  }
+
+  /**
+   * Returns how steeply the approach surface may rise, as blocks out per block up.
+   *
+   * <p>Seven is a shallow climb, which is the point: anything poking through the sloping surface is
+   * cut off, so the ground falls away from the runway rather than closing in on it.
+   *
+   * @return the slope
+   */
+  public int getApproachSlope() {
+    return approachSlope;
+  }
+
+  /**
+   * Returns how far above sea level a runway platform may sit, in blocks.
+   *
+   * <p>The platform has to be a height every chunk can work out for itself, and sea level is the
+   * one global height a world gives away for free. Rolling a small lift on top of it keeps every
+   * airfield in the world from sitting at exactly the same altitude.
+   *
+   * @return the greatest lift above sea level
+   */
+  public int getRunwayLift() {
+    return runwayLift;
   }
 }

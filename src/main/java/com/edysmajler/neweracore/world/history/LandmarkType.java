@@ -31,17 +31,14 @@ public enum LandmarkType {
   /** Whatever was being worked on when it stopped. Supplied by rail, like anything industrial. */
   RESEARCH_FACILITY(32, RouteType.RAILWAY, RegionStory.ASHEN_WASTE, RegionStory.FRONT_LINE),
 
-  /** Runways long enough to see from a ridge. */
-  AIRPORT(64, RouteType.HIGHWAY, RegionStory.RUINED_TOWNS, RegionStory.DUST_BOWL),
+  /** Runways long enough to see from a ridge, and level enough to have been landed on. */
+  AIRPORT(180, RouteType.HIGHWAY, RegionStory.RUINED_TOWNS, RegionStory.DUST_BOWL),
 
   /** Where the people who could not leave were taken. */
   HOSPITAL(28, RouteType.HIGHWAY, RegionStory.RUINED_TOWNS, RegionStory.DUST_BOWL),
 
   /** Still holding a river back, whether or not anyone wants it to. Where the power came from. */
   HYDROELECTRIC_DAM(40, RouteType.POWER_LINE, RegionStory.GREEN_REFUGE, RegionStory.DUST_BOWL),
-
-  /** A crossing that decides where roads can go. */
-  LARGE_BRIDGE(40, RouteType.HIGHWAY, RegionStory.GREEN_REFUGE, RegionStory.RUINED_TOWNS),
 
   /** Small, cheap, and everywhere: the one thing that might still be transmitting. */
   RADIO_TOWER(12, RouteType.POWER_LINE);
@@ -76,6 +73,36 @@ public enum LandmarkType {
    */
   public RouteType connectsBy() {
     return connectsBy;
+  }
+
+  /**
+   * Returns whether this kind of place could have been built on this ground.
+   *
+   * <p>The counterpart to {@link #fits}: that asks whether the region's history suits the place,
+   * this asks whether the ground does. A dam wants a river to hold back and a bridge wants water to
+   * cross, and neither means anything without one. An airport wants open country — its runway can
+   * be levelled wherever it lands, but the ridge an aircraft would have to fly through on approach
+   * cannot be, so the answer is not to put it in the hills at all.
+   *
+   * <p>Everything else can stand anywhere, which also guarantees the candidate list is never empty:
+   * {@code RADIO_TOWER} has no story affinity and no ground requirement, so it always survives both
+   * filters.
+   *
+   * @param terrain what the ground is like
+   * @param blockX absolute block x of the site
+   * @param blockZ absolute block z of the site
+   * @return true when the place could stand here
+   */
+  public boolean canStandAt(SiteTerrain terrain, int blockX, int blockZ) {
+    if (!terrain.isDryLand(blockX, blockZ)) {
+      return false;
+    }
+
+    return switch (this) {
+      case HYDROELECTRIC_DAM -> terrain.isWaterside(blockX, blockZ);
+      case AIRPORT -> terrain.isOpen(blockX, blockZ);
+      default -> true;
+    };
   }
 
   /**

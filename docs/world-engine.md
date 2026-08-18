@@ -186,7 +186,7 @@ was, and only measuring the world revealed it.
 ## Landmarks
 
 Rare places worth setting out for: missile silo, military base, research facility, airport, hospital,
-hydroelectric dam, large bridge, radio tower. **Locations only — nothing is built on them yet.**
+hydroelectric dam, radio tower. **Locations only — nothing is built on them yet.**
 
 Sites sit on a 1500-block grid (validated to 1000–3000), 85% of cells occupied, each site wandering
 only within the middle 40% of its cell so two sites either side of a border can never end up
@@ -199,7 +199,9 @@ here reads the terrain: that would need chunks loaded, and a landmark has to be 
 arbitrarily far away. A generator that needs a river under its dam can refuse the site when it arrives.
 
 Reach them through `RegionProfile.landmark()` (standing on one) and `nearestLandmark()` (what a road
-should aim at).
+should aim at). In game, `/nec locate <kind>` finds the nearest of any type — searching one ring of
+cells at a time and then one ring further, because a site in the corner of a ring can be further away
+than one just inside the next.
 
 ## Infrastructure, and why it comes first
 
@@ -250,8 +252,37 @@ diagonal covers ground the route never approaches, so three quarters of all chun
 road and paid to find out otherwise — a millisecond per chunk. Ruling pairs out against the straight
 line first, then walking every eighth sample, cut it by 22×.
 
-**Not built yet:** true tunnels and canals both need an engineered grade, and junctions are overlaps
-rather than interchanges. Deferred deliberately rather than faked.
+### Runways, and where an engineered grade *is* possible
+
+Roads riding over hills is correct — a real road follows its terrain. A runway is the opposite kind of
+object: an aircraft cannot land on a gradient, so the ground gives way to the structure instead.
+
+That is possible for a **site** even though it is impossible for a route. A route is thousands of blocks
+long and levelling one needs terrain knowledge kilometres ahead. An `Airfield` is a fixed rectangle at
+fixed coordinates, so its platform height is a pure function of the seed — anchored to
+`World.getSeaLevel()`, the one global height a world gives away for free — and every chunk touching it
+computes the same number without asking anyone. `Earthworks` then cuts and fills each column to it.
+
+Measured across three seeds: **260 × 18 strips** with a 4-block levelled shoulder either side, one
+height each (63–72, sea level plus a hashed lift), bearings spread across the compass rather than
+axis-aligned, ~6760 levelled columns per airfield. `AIRPORT`'s footprint went from 64 to **180** so the
+runway fits inside the site that owns it.
+
+The fill is capped at `Earthworks.MAX_FILL`. Unbounded, a runway ending over a valley would pour a
+hundred-block plinth of tuff; a hole under the far end reads as subsidence, which this world has plenty
+of. Cuts are not capped — a genuine cutting through a hillside is what building an airfield in hills
+actually costs.
+
+Levelling the strip is only half of an airport. An aircraft has to get down onto it and back off
+again, so anything poking above a surface that rises one block per 7 outward — `approach-reach` blocks
+past the strip in every direction — has its top taken off. Real airfields call this the obstacle
+limitation surface, and it is why an airport is a wide flat *place* rather than a flat line. Below the
+surface nothing is touched, so a valley beside a runway stays a valley.
+
+**Not built yet:** terminals, hangars, and aprons are structures rather than infrastructure. True
+tunnels and canals still need a *route*-scale engineered grade, which the site trick does not solve.
+Junctions are overlaps rather than interchanges. Railways still follow terrain, which real rail cannot
+do at steep grades — the same site trick will not fix that, since a railway is a route.
 
 ## The passes, in order
 

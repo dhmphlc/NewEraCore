@@ -121,6 +121,12 @@ configurations.named("integrationTestImplementation") {
 }
 
 tasks.processResources {
+    // Gradle cannot see that `version` changed, because it is a value rather than a file: without
+    // this the task stays up to date and ships the previously expanded plugin.yml, so a fresh build
+    // reports the version of an older one. A running server then lies about which build it is, which
+    // is the one thing its version string exists to answer.
+    inputs.property("pluginVersion", version)
+
     filesMatching("**/plugin.yml") {
         expand(mapOf("NAME" to rootProject.name, "VERSION" to version, "PACKAGE" to project.group))
     }

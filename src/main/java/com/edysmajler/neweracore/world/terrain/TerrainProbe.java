@@ -11,8 +11,8 @@ import org.bukkit.Material;
  * reads as painted on, because nothing about it responds to the ground it sits on. Real marks of a
  * catastrophe follow the terrain: ash settles thick in hollows and blows off exposed ridges, steep
  * faces scour down to rock, low flat ground holds dust and dried mud. Driving the passes from
- * slope,
- * relief, and water proximity is what makes the result look <em>caused</em> rather than applied.
+ * slope, relief, and water proximity is what makes the result look <em>caused</em> rather than
+ * applied.
  *
  * <p>All values are derived from the chunk snapshot and cached, so the extra realism costs one pass
  * over 256 columns.
@@ -113,14 +113,13 @@ public final class TerrainProbe {
     }
 
     // Set the flag first: the helpers below read heights, not probe state, so there is no
-    // recursion,
-    // and this keeps the guard cheap.
+    // recursion, and this keeps the guard cheap.
     probed = true;
 
     for (int x = 0; x < SIZE; x++) {
       for (int z = 0; z < SIZE; z++) {
-        // Ground height, not the highest block: canopy heights would make a flat forest look like
-        // a cliff face and scour it to bare rock
+        // Ground height, not the highest block: canopy heights would make a flat forest look like a
+        // cliff face and scour it to bare rock
         int here = context.groundY(x, z);
         int i = index(x, z);
 
