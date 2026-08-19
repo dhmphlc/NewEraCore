@@ -6,6 +6,8 @@ import com.edysmajler.neweracore.world.corruption.CorruptionProfile;
 import org.bukkit.Axis;
 import org.bukkit.Material;
 import org.bukkit.Tag;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Orientable;
 
 /**
  * Replaces living trees with dead ones.
@@ -59,6 +61,50 @@ public final class DeadTrees {
         raiseSnag(context, palette, profile, tree);
       }
     }
+
+    charStrayWood(context, profile, scan, palette);
+  }
+
+  /**
+   * Chars every log the trunk passes did not account for, in place and lying as it fell.
+   *
+   * <p>The generator leaves wood that is not a standing trunk: fallen trees resting on the ground,
+   * and the horizontal branch logs of a large oak. The snag and collapse passes never see them —
+   * only trunk bases are trees — so they sat untouched, fresh timber in a burnt landscape, which
+   * is exactly the painted-on look the whole engine exists to avoid. Charring them in place keeps
+   * the shape whole: a fallen trunk stays a fallen trunk, just burnt like everything around it.
+   *
+   * <p>Runs after the trunk passes, so anything they already replaced or cleared is no longer a
+   * log and is skipped. The orientation is read from the generated data, which is safe for the
+   * same reason the block is still here: nothing in the engine has written it.
+   */
+  private static void charStrayWood(
+      ChunkContext context,
+      CorruptionProfile profile,
+      TreeScan scan,
+      AshPalette palette
+  ) {
+    for (BlockPosition log : scan.logs()) {
+      if (isLiving(context, profile, log.x(), log.z())) {
+        continue;
+      }
+
+      if (!Tag.LOGS.isTagged(context.typeAt(log.x(), log.y(), log.z()))) {
+        continue;
+      }
+
+      Axis axis = axisOf(context.generatedDataAt(log.x(), log.y(), log.z()));
+      context.set(
+          log.x(),
+          log.y(),
+          log.z(),
+          axis == Axis.Y ? CharredWood.standing(palette) : CharredWood.fallen(palette, axis)
+      );
+    }
+  }
+
+  private static Axis axisOf(BlockData data) {
+    return data instanceof Orientable orientable ? orientable.getAxis() : Axis.Y;
   }
 
   /**

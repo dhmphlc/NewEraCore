@@ -6,16 +6,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import com.edysmajler.neweracore.config.HistoryConfig;
 import com.edysmajler.neweracore.config.HugeCraterConfig;
-import com.edysmajler.neweracore.config.InfrastructureConfig;
 import com.edysmajler.neweracore.config.LevelsConfig;
 import com.edysmajler.neweracore.config.NoiseConfig;
 import com.edysmajler.neweracore.config.PluginConfig;
+import com.edysmajler.neweracore.config.StructuresConfig;
 import com.edysmajler.neweracore.config.ThresholdConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
 import com.edysmajler.neweracore.world.ChunkMarker;
 import com.edysmajler.neweracore.world.WorldEngine;
+import com.edysmajler.neweracore.world.structures.FighterJet;
+import com.edysmajler.neweracore.world.structures.StructureManager;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
 import java.util.List;
 import java.util.UUID;
@@ -29,9 +30,9 @@ import org.mockito.ArgumentCaptor;
 /**
  * Shared mocks for the command tests.
  *
- * <p>The commands read a real {@code HistoryEngine} over mocked Bukkit objects, so what is under
- * test is the actual simulated history of a seed rather than a stubbed answer. Only the world, the
- * player, and the chunk mark are pretended.
+ * <p>The commands read real noise fields and a real structure registry over mocked Bukkit objects,
+ * so what is under test is the actual answer for a seed rather than a stubbed one. Only the world,
+ * the player, and the chunk mark are pretended.
  */
 final class Fixtures {
 
@@ -90,9 +91,8 @@ final class Fixtures {
     when(engine.getNoise()).thenReturn(new NoiseConfig());
     when(engine.getThresholds()).thenReturn(new ThresholdConfig());
     when(engine.getLevels()).thenReturn(new LevelsConfig());
-    when(engine.getHistory()).thenReturn(new HistoryConfig());
+    when(engine.getStructures()).thenReturn(new StructuresConfig());
     when(engine.getHugeCraters()).thenReturn(craters);
-    when(engine.getInfrastructure()).thenReturn(new InfrastructureConfig());
 
     PluginConfig config = mock(PluginConfig.class);
     when(config.getMessagePrefix()).thenReturn("[Core] ");
@@ -106,7 +106,7 @@ final class Fixtures {
    * <p>The land lookup has to be replaced rather than fed: the real one asks the world generator
    * for a biome, and {@code Biome} cannot be produced or even mocked outside a running server. What
    * the lookup itself decides is covered where it is decided — {@code CraterSitesTest} and {@code
-   * SiteTerrainTest} — with no Bukkit involved at all.
+   * StructureSitesTest} — with no Bukkit involved at all.
    *
    * @param config the plugin config to read
    * @param transformed what the chunk mark should report
@@ -120,6 +120,7 @@ final class Fixtures {
         config.getWorldEngine(),
         marker,
         List.of(),
+        new StructureManager(List.of(new FighterJet())),
         Logger.getAnonymousLogger()
     ));
 

@@ -3,10 +3,10 @@ package com.edysmajler.neweracore.world;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
 import com.edysmajler.neweracore.world.corruption.CorruptionLevel;
 import com.edysmajler.neweracore.world.corruption.CorruptionProfile;
+import com.edysmajler.neweracore.world.corruption.CorruptionZone;
 import com.edysmajler.neweracore.world.feature.CraterSite;
-import com.edysmajler.neweracore.world.history.RegionProfile;
-import com.edysmajler.neweracore.world.infrastructure.InfrastructureEngine;
 import com.edysmajler.neweracore.world.noise.NoiseFields;
+import com.edysmajler.neweracore.world.structures.StructureSite;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +16,7 @@ import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Material;
 import org.bukkit.Tag;
+import org.bukkit.World;
 import org.bukkit.block.Biome;
 import org.bukkit.block.data.BlockData;
 
@@ -40,8 +41,7 @@ public class ChunkContext {
   private final Chunk chunk;
   private final ChunkSnapshot snapshot;
   private final WorldEngineConfig config;
-  private final RegionProfile region;
-  private final InfrastructureEngine infrastructure;
+  private final CorruptionZone zone;
   private final boolean[] reserved = new boolean[CHUNK_SIZE * CHUNK_SIZE];
   private final Random random;
   private final int minHeight;
@@ -55,6 +55,7 @@ public class ChunkContext {
   private final int originZ;
 
   private final List<CraterSite> hugeCraterSites;
+  private final List<StructureSite> structureSites;
 
   private final ColumnMasks patchMask;
   private final ColumnMasks blightMask;
@@ -67,9 +68,9 @@ public class ChunkContext {
    * @param chunk the chunk being transformed
    * @param config the world engine settings
    * @param fields the world's noise fields
-   * @param region what happened in this chunk's region, resolved once by the history engine
-   * @param infrastructure the world's network of routes between its landmarks
+   * @param zone this chunk's corruption zone, resolved once at its centre
    * @param hugeCraterSites the world-scale impact sites reaching this chunk
+   * @param structureSites the scattered-structure sites whose footprint touches this chunk
    */
   @SuppressFBWarnings(
       value = {"EI_EXPOSE_REP2", "PREDICTABLE_RANDOM"},
@@ -81,17 +82,17 @@ public class ChunkContext {
       Chunk chunk,
       WorldEngineConfig config,
       NoiseFields fields,
-      RegionProfile region,
-      InfrastructureEngine infrastructure,
-      List<CraterSite> hugeCraterSites
+      CorruptionZone zone,
+      List<CraterSite> hugeCraterSites,
+      List<StructureSite> structureSites
   ) {
     this.chunk = chunk;
     // Height map is required for surfaceY; biome data drives transformer selection
     this.snapshot = chunk.getChunkSnapshot(true, true, false);
     this.config = config;
-    this.region = region;
-    this.infrastructure = infrastructure;
+    this.zone = zone;
     this.hugeCraterSites = List.copyOf(hugeCraterSites);
+    this.structureSites = List.copyOf(structureSites);
     this.minHeight = chunk.getWorld().getMinHeight();
     this.maxHeight = chunk.getWorld().getMaxHeight() - 1;
 
@@ -142,27 +143,25 @@ public class ChunkContext {
   }
 
   /**
-   * Returns what happened in this chunk's region.
+   * Returns the world this chunk belongs to.
    *
-   * <p>The single place to ask a region-scale question. A pass that samples a large field for
-   * itself is inventing its own private history, and two passes doing that will disagree about the
-   * same valley; this is the answer they all share. Per-<em>column</em> texture still comes from
-   * the masks below, which is a different question — where a material varies inside a place, not
-   * what the place is.
+   * <p>Here for the structure placer alone, which is the one pass allowed outside this chunk: it
+   * builds whole shapes across borders once every chunk they touch exists. Everything else in the
+   * pipeline should keep working through the chunk-relative reads and writes below.
    *
-   * @return the region profile
+   * @return the world
    */
-  public RegionProfile region() {
-    return region;
+  public World world() {
+    return chunk.getWorld();
   }
 
   /**
-   * Returns the world's network of routes between its landmarks.
+   * Returns the scattered-structure sites whose footprint touches this chunk, usually none.
    *
-   * @return the infrastructure engine
+   * @return the sites
    */
-  public InfrastructureEngine infrastructure() {
-    return infrastructure;
+  public List<StructureSite> structureSites() {
+    return structureSites;
   }
 
   /**
@@ -198,19 +197,16 @@ public class ChunkContext {
    * @return the level
    */
   public CorruptionLevel level() {
-    return region.corruptionLevel();
+    return zone.level();
   }
 
   /**
-   * Returns the effective rules for this chunk.
-   *
-   * <p>Already blended for a smooth level transition <em>and</em> already shaped by the region's
-   * history, so every pass that reads this is story-driven without knowing that history exists.
+   * Returns the effective rules for this chunk, already blended for a smooth level transition.
    *
    * @return the profile
    */
   public CorruptionProfile profile() {
-    return region.profile();
+    return zone.profile();
   }
 
   /**
@@ -219,7 +215,7 @@ public class ChunkContext {
    * @return the intensity between 0 and 1
    */
   public double intensity() {
-    return region.corruptionIntensity();
+    return zone.intensity();
   }
 
   /**
@@ -431,6 +427,27 @@ public class ChunkContext {
 
     Material edited = overlay.get(index(x, y, z));
     return edited != null ? edited : snapshot.getBlockType(x, y, z);
+  }
+
+  /**
+   * Returns the block data a position had when the chunk generated.
+   *
+   * <p>Read from the snapshot, so edits made during this pass do not show. That is the point: the
+   * one thing this is for is the <em>orientation</em> of blocks the world generator placed and the
+   * engine has not touched — a fallen trunk's axis, so its charred replacement can lie the same
+   * way. For anything the engine may have rewritten, {@link #typeAt} is the honest read.
+   *
+   * @param x chunk-relative x, 0-15
+   * @param y absolute height
+   * @param z chunk-relative z, 0-15
+   * @return the generated block data, or air's when outside the world's height range
+   */
+  public BlockData generatedDataAt(int x, int y, int z) {
+    if (y < minHeight || y > maxHeight || !inChunk(x, z)) {
+      return Material.AIR.createBlockData();
+    }
+
+    return snapshot.getBlockData(x, y, z);
   }
 
   /**

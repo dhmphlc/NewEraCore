@@ -17,7 +17,7 @@ public class NewEraCoreCommand extends BaseCommand {
    *
    * @param config the loaded plugin configuration
    * @param plugin the plugin instance, used for its version
-   * @param engine the running world engine, which owns each world's simulated history
+   * @param engine the running world engine, which owns the noise fields and structure registry
    */
   public NewEraCoreCommand(PluginConfig config, Plugin plugin, WorldEngine engine) {
     super(
@@ -38,10 +38,12 @@ public class NewEraCoreCommand extends BaseCommand {
                     .executesPlayer(new FindCraters(config, engine))
             )
             // A literal per kind rather than free text, so the client completes them and a typo
-            // never reaches the executor
+            // never reaches the executor. The kinds come from the live registry, so a schematic
+            // dropped into the structures folder is completable without touching this class.
             .withSubcommand(
                 new CommandAPICommand("locate")
-                    .withArguments(new MultiLiteralArgument(Locate.TARGET, Locate.targets()))
+                    .withArguments(new MultiLiteralArgument(
+                        Locate.TARGET, engine.structures().ids().toArray(new String[0])))
                     .executesPlayer(new Locate(config, engine))
             )
     );

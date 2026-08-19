@@ -16,7 +16,7 @@ import org.bukkit.entity.Player;
  * Lists the huge impact craters near the player.
  *
  * <p>Huge craters are the events the whole world is reacting to, and they are rare enough — one
- * every kilometre or two, only where the war map says the fighting reached — that finding one by
+ * every kilometre or two, only in scarred-or-worse country — that finding one by
  * walking is mostly luck. Since their positions are a pure function of the world seed, they can
  * simply be looked up, from anywhere, without loading a single chunk.
  *
@@ -41,7 +41,7 @@ public class FindCraters implements PlayerCommandExecutor {
    * Creates the executor.
    *
    * @param config the loaded plugin configuration
-   * @param engine the running world engine, which owns each world's history
+   * @param engine the running world engine, which owns each world's noise fields
    */
   public FindCraters(PluginConfig config, WorldEngine engine) {
     this.config = config;
@@ -57,7 +57,8 @@ public class FindCraters implements PlayerCommandExecutor {
     HugeCraterConfig craters = config.getWorldEngine().getHugeCraters();
     List<CraterSite> sites = CraterSites.around(
         craters,
-        engine.history(player.getWorld()),
+        engine.fields(player.getWorld()),
+        config.getWorldEngine().getThresholds(),
         engine.land(player.getWorld()),
         player.getWorld().getSeed(),
         blockX,
@@ -97,14 +98,12 @@ public class FindCraters implements PlayerCommandExecutor {
 
     player.sendRichMessage(String.format(
         Locale.ROOT,
-        "<gray>  <white>%d, %d</white>  %d blocks %s  <dark_gray>%d wide, ~%d deep, %s",
-        site.centerX(),
-        site.centerZ(),
+        "<gray>  %s  %d blocks %s  <dark_gray>%d wide, ~%d deep",
+        TeleportLink.to(site.centerX(), site.centerZ()),
         Math.round(site.distanceTo(blockX, blockZ)),
         Bearing.of(site.centerX() - (double) blockX, site.centerZ() - (double) blockZ),
         site.radius() * 2,
-        depth,
-        engine.history(player.getWorld()).at(site.centerX(), site.centerZ()).story()
+        depth
     ));
   }
 }

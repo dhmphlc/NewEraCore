@@ -27,7 +27,8 @@ class FindCratersTest {
 
     List<CraterSite> expected = CraterSites.around(
         config.getWorldEngine().getHugeCraters(),
-        engine.history(world),
+        engine.fields(world),
+        config.getWorldEngine().getThresholds(),
         LandLookup.EVERYWHERE,
         Fixtures.SEED,
         0,

@@ -38,13 +38,8 @@ public class WorldEngineConfig {
 
   @Valid
   @NotNull
-  @JsonProperty("history")
-  private HistoryConfig history = new HistoryConfig();
-
-  @Valid
-  @NotNull
-  @JsonProperty("infrastructure")
-  private InfrastructureConfig infrastructure = new InfrastructureConfig();
+  @JsonProperty("structures")
+  private StructuresConfig structures = new StructuresConfig();
 
   @Valid
   @NotNull
@@ -82,22 +77,12 @@ public class WorldEngineConfig {
   }
 
   /**
-   * Returns the simulated history: the largest-scale layers, from which every region's character is
-   * derived.
+   * Returns the scattered-structure settings: where premade wrecks and ruins land.
    *
-   * @return the history config
+   * @return the structures config
    */
-  public HistoryConfig getHistory() {
-    return history;
-  }
-
-  /**
-   * Returns what was built between the landmarks: roads, rail, and power lines.
-   *
-   * @return the infrastructure config
-   */
-  public InfrastructureConfig getInfrastructure() {
-    return infrastructure;
+  public StructuresConfig getStructures() {
+    return structures;
   }
 
   public HugeCraterConfig getHugeCraters() {

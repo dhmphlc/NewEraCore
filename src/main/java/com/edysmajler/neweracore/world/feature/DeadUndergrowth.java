@@ -68,7 +68,11 @@ public final class DeadUndergrowth {
         continue;
       }
 
-      boolean standing = context.typeAt(x, y - 1, z).isSolid();
+      // Leaf litter is cleared outright, never converted: a standing bush where a flat leaf lay
+      // overstates what was there, and litter comes in patches dense enough that converting a
+      // share of each one would carpet the forest floor in bushes.
+      boolean standing = material != Material.LEAF_LITTER
+          && context.typeAt(x, y - 1, z).isSolid();
       if (standing && context.chance(profile.deadBushChance())) {
         context.set(x, y, z, palette.litter());
       } else {

@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.edysmajler.neweracore.config.HugeCraterConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
-import com.edysmajler.neweracore.world.history.HistoryEngine;
+import com.edysmajler.neweracore.world.noise.NoiseFields;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ class CraterSitesTest {
 
   private final WorldEngineConfig config = new WorldEngineConfig();
   private final HugeCraterConfig craters = config.getHugeCraters();
-  private final HistoryEngine history = new HistoryEngine(SEED, config);
+  private final NoiseFields fields = new NoiseFields(SEED, config.getNoise());
 
   @Test
   void findsCratersOnLand() {
@@ -77,7 +77,8 @@ class CraterSitesTest {
 
     List<CraterSite> other = CraterSites.around(
         craters,
-        new HistoryEngine(SEED + 1, config),
+        new NoiseFields(SEED + 1, config.getNoise()),
+        config.getThresholds(),
         LandLookup.EVERYWHERE,
         SEED + 1,
         0,
@@ -88,6 +89,6 @@ class CraterSitesTest {
   }
 
   private List<CraterSite> around(LandLookup land) {
-    return CraterSites.around(craters, history, land, SEED, 0, 0, RADIUS);
+    return CraterSites.around(craters, fields, config.getThresholds(), land, SEED, 0, 0, RADIUS);
   }
 }

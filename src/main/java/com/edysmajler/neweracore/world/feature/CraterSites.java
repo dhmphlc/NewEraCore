@@ -1,7 +1,8 @@
 package com.edysmajler.neweracore.world.feature;
 
 import com.edysmajler.neweracore.config.HugeCraterConfig;
-import com.edysmajler.neweracore.world.history.HistoryEngine;
+import com.edysmajler.neweracore.config.ThresholdConfig;
+import com.edysmajler.neweracore.world.noise.NoiseFields;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -16,16 +17,14 @@ import java.util.List;
  * cell, which makes them a pure function of the world seed. Each chunk then carves only the slice
  * that falls inside it, and neighbouring chunks line up perfectly without ever loading each other.
  *
- * <p>Sites are only kept where the war map says the fighting reached <em>and</em> the generator
- * puts land — a bowl at sea carves nothing, because fluid columns are skipped, so it is a rare
- * feature spent on a walk to look at open water. Rejecting those costs perhaps a third of the sites
- * and makes the rest count.
+ * <p>Sites are only kept where the corruption field runs at least scarred <em>and</em> the
+ * generator puts land — a bowl at sea carves nothing, because fluid columns are skipped, so it is a
+ * rare feature spent on a walk to look at open water. Rejecting those costs perhaps a third of the
+ * sites and makes the rest count.
  *
- * <p>The war test is what ties the biggest hole in the ground to everything around it: the same
- * layer that put the crater here also thinned the groves, flattened the deadfall, and scattered the
- * smaller impacts across the same region. Keying it to the corruption level instead — as this did
- * before there was a history to consult — made the largest event in the world an unrelated
- * coincidence sitting in land that happened to be dark.
+ * <p>The corruption test ties the biggest hole in the ground to the country around it: the field
+ * that darkened the region is the one that put the crater in it, so the largest event in the world
+ * lands where everything else already looks hit.
  */
 public final class CraterSites {
 
@@ -43,7 +42,8 @@ public final class CraterSites {
    * Returns the huge crater sites that reach a chunk.
    *
    * @param config the huge crater settings
-   * @param history the world's simulated history
+   * @param fields the world's noise fields
+   * @param thresholds where the corruption level bands begin
    * @param land what the world generator puts at a position, land or open water
    * @param worldSeed the world seed
    * @param chunkX chunk x coordinate
@@ -53,7 +53,8 @@ public final class CraterSites {
    */
   public static List<CraterSite> near(
       HugeCraterConfig config,
-      HistoryEngine history,
+      NoiseFields fields,
+      ThresholdConfig thresholds,
       LandLookup land,
       long worldSeed,
       int chunkX,
@@ -76,7 +77,7 @@ public final class CraterSites {
           continue;
         }
 
-        if (isWorthCarving(history, land, site)) {
+        if (isWorthCarving(fields, thresholds, land, site)) {
           sites.add(site);
         }
       }
@@ -96,7 +97,8 @@ public final class CraterSites {
    * asked about anywhere.
    *
    * @param config the huge crater settings
-   * @param history the world's simulated history
+   * @param fields the world's noise fields
+   * @param thresholds where the corruption level bands begin
    * @param land what the world generator puts at a position, land or open water
    * @param worldSeed the world seed
    * @param blockX absolute block x to search around
@@ -106,7 +108,8 @@ public final class CraterSites {
    */
   public static List<CraterSite> around(
       HugeCraterConfig config,
-      HistoryEngine history,
+      NoiseFields fields,
+      ThresholdConfig thresholds,
       LandLookup land,
       long worldSeed,
       int blockX,
@@ -126,7 +129,7 @@ public final class CraterSites {
 
         if (site != null
             && site.distanceTo(blockX, blockZ) <= blockRadius
-            && isWorthCarving(history, land, site)) {
+            && isWorthCarving(fields, thresholds, land, site)) {
           found.add(site);
         }
       }
@@ -164,14 +167,20 @@ public final class CraterSites {
   }
 
   /**
-   * Returns whether a site is worth having: struck by the war, and on dry land.
+   * Returns whether a site is worth having: in scarred-or-worse country, and on dry land.
    *
-   * <p>Reading the history is pure arithmetic over the noise maps, so it asks about a location far
+   * <p>Sampling the field is pure arithmetic over the seed, so it asks about a location far
    * outside the current chunk without loading anything — which is the whole reason a crater wider
    * than a chunk can exist at all. {@link LandLookup} keeps the same promise for the land test.
    */
-  private static boolean isWorthCarving(HistoryEngine history, LandLookup land, CraterSite site) {
-    return history.at(site.centerX(), site.centerZ()).story().isWarTorn()
+  private static boolean isWorthCarving(
+      NoiseFields fields,
+      ThresholdConfig thresholds,
+      LandLookup land,
+      CraterSite site
+  ) {
+    return fields.corruption().sample(site.centerX(), site.centerZ())
+        >= thresholds.getScarredAbove()
         && isWellInland(land, site);
   }
 

@@ -3,8 +3,10 @@ package com.edysmajler.neweracore.world.feature;
 import com.edysmajler.neweracore.world.ChunkContext;
 import java.util.ArrayList;
 import java.util.List;
+import org.bukkit.Axis;
 import org.bukkit.Material;
 import org.bukkit.Tag;
+import org.bukkit.block.data.Orientable;
 
 /**
  * One pass over a chunk collecting everything the tree features need.
@@ -71,10 +73,18 @@ public record TreeScan(List<Tree> trees, List<BlockPosition> logs, List<BlockPos
       }
 
       logs.add(new BlockPosition(x, y, z));
-      if (isGround(context.typeAt(x, y - 1, z))) {
+      // A trunk base is a log standing upright on the ground. The axis check is what keeps the
+      // generator's fallen trunks out: a log lying on its side also sits on dirt, and treating
+      // each block of the run as a one-block tree turned fallen trees into rows of stumps.
+      if (isGround(context.typeAt(x, y - 1, z)) && isUpright(context, x, y, z)) {
         trees.add(new Tree(x, y, z));
       }
     }
+  }
+
+  private static boolean isUpright(ChunkContext context, int x, int y, int z) {
+    return !(context.generatedDataAt(x, y, z) instanceof Orientable orientable)
+        || orientable.getAxis() == Axis.Y;
   }
 
   private static boolean isGround(Material material) {

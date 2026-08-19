@@ -13,14 +13,14 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.edysmajler.neweracore.config.HistoryConfig;
 import com.edysmajler.neweracore.config.HugeCraterConfig;
-import com.edysmajler.neweracore.config.InfrastructureConfig;
 import com.edysmajler.neweracore.config.LevelsConfig;
 import com.edysmajler.neweracore.config.NoiseConfig;
 import com.edysmajler.neweracore.config.OreConfig;
+import com.edysmajler.neweracore.config.StructuresConfig;
 import com.edysmajler.neweracore.config.ThresholdConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
+import com.edysmajler.neweracore.world.structures.StructureManager;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
 import java.util.List;
 import java.util.UUID;
@@ -96,7 +96,8 @@ class WorldEngineTest {
     WorldEngineConfig config = engineConfig(true);
 
     withStubbedGround(
-        new WorldEngine(config, marker, List.of(failing, second), Logger.getAnonymousLogger()))
+        new WorldEngine(config, marker, List.of(failing, second), emptyRegistry(),
+            Logger.getAnonymousLogger()))
         .onChunkLoad(event(true));
 
     // A broken stage must not stop the stages after it
@@ -124,6 +125,7 @@ class WorldEngineTest {
         engineConfig(enabled),
         marker,
         List.of(processor),
+        emptyRegistry(),
         Logger.getAnonymousLogger()
     ));
   }
@@ -144,11 +146,14 @@ class WorldEngineTest {
     when(config.getNoise()).thenReturn(new NoiseConfig());
     when(config.getThresholds()).thenReturn(new ThresholdConfig());
     when(config.getLevels()).thenReturn(new LevelsConfig());
-    when(config.getHistory()).thenReturn(new HistoryConfig());
-    when(config.getInfrastructure()).thenReturn(new InfrastructureConfig());
+    when(config.getStructures()).thenReturn(new StructuresConfig());
     when(config.getHugeCraters()).thenReturn(new HugeCraterConfig());
     when(config.getOres()).thenReturn(new OreConfig());
     return config;
+  }
+
+  private static StructureManager emptyRegistry() {
+    return new StructureManager(List.of());
   }
 
   private static ChunkLoadEvent event(boolean newChunk) {

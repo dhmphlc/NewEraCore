@@ -1,9 +1,11 @@
 package com.edysmajler.neweracore.world;
 
 import com.edysmajler.neweracore.config.WorldEngineConfig;
+import com.edysmajler.neweracore.world.corruption.CorruptionZone;
 import com.edysmajler.neweracore.world.feature.CraterSites;
-import com.edysmajler.neweracore.world.history.HistoryEngine;
-import com.edysmajler.neweracore.world.infrastructure.InfrastructureEngine;
+import com.edysmajler.neweracore.world.noise.NoiseFields;
+import com.edysmajler.neweracore.world.structures.StructureManager;
+import com.edysmajler.neweracore.world.structures.StructureSites;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -26,19 +28,18 @@ import org.bukkit.event.world.ChunkLoadEvent;
  * players have built — are never touched. {@link ChunkMarker} then records the engine version in
  * the chunk itself, so even if a chunk is reported as new twice it is only transformed once.
  *
- * <p>The world's {@link HistoryEngine} is built per world and cached. It depends only on the world
- * seed, and building it calibrates every noise field it owns, so rebuilding one per chunk would be
- * pure waste. Each chunk then asks it a single question — what happened in this region — and hands
- * the answer to the pipeline.
+ * <p>Each world's {@link NoiseFields} are built once and cached: they depend only on the world
+ * seed, and building them calibrates every field against thousands of samples, so rebuilding them
+ * per chunk would be pure waste.
  */
 public class WorldEngine implements Listener {
 
   private final WorldEngineConfig config;
   private final ChunkMarker marker;
   private final List<ChunkProcessor> pipeline;
+  private final StructureManager structures;
   private final Logger logger;
-  private final Map<UUID, HistoryEngine> historyByWorld = new ConcurrentHashMap<>();
-  private final Map<UUID, InfrastructureEngine> networkByWorld = new ConcurrentHashMap<>();
+  private final Map<UUID, NoiseFields> fieldsByWorld = new ConcurrentHashMap<>();
 
   /**
    * Creates the engine.
@@ -46,6 +47,7 @@ public class WorldEngine implements Listener {
    * @param config the world engine settings
    * @param marker the transformed-chunk marker
    * @param pipeline the processors to run, in order
+   * @param structures the registry of scattered structures
    * @param logger the logger used to report processor failures
    */
   @SuppressFBWarnings(
@@ -56,11 +58,13 @@ public class WorldEngine implements Listener {
       WorldEngineConfig config,
       ChunkMarker marker,
       List<ChunkProcessor> pipeline,
+      StructureManager structures,
       Logger logger
   ) {
     this.config = config;
     this.marker = marker;
     this.pipeline = List.copyOf(pipeline);
+    this.structures = structures;
     this.logger = logger;
   }
 
@@ -88,47 +92,37 @@ public class WorldEngine implements Listener {
   }
 
   /**
-   * Returns the simulated history of a world, building it on first use.
+   * Returns a world's noise fields, building them on first use.
    *
-   * <p>Public because the history is worth asking about from outside chunk generation: a command
-   * reporting what happened where a player is standing, and every future system that has to plan
-   * beyond the chunk in front of it, need the same instance the generator used. Building a second
-   * one would give the same answers — it is a pure function of the seed — but would pay the
+   * <p>Public because the fields are worth asking about from outside chunk generation: commands
+   * that report where things will be need the same calibrated instance the generator uses — a
+   * second one would give the same answers, being a pure function of the seed, but would pay the
    * calibration cost again for nothing.
    *
    * @param world the world to ask about
-   * @return that world's history
+   * @return that world's fields
    */
-  public HistoryEngine history(World world) {
-    return historyByWorld.computeIfAbsent(
+  public NoiseFields fields(World world) {
+    return fieldsByWorld.computeIfAbsent(
         world.getUID(),
-        unused -> new HistoryEngine(world.getSeed(), config, land(world).siteTerrain())
+        unused -> new NoiseFields(world.getSeed(), config.getNoise())
     );
   }
 
   /**
-   * Returns the network of routes between a world's landmarks, building it on first use.
+   * Returns the registry of scattered structures.
    *
-   * <p>Public for the reason the whole layer exists: what gets built later has to be able to ask
-   * where the roads are, and get the same answer the roads themselves were drawn from.
-   *
-   * @param world the world to ask about
-   * @return that world's infrastructure
+   * @return the structure manager
    */
-  public InfrastructureEngine infrastructure(World world) {
-    return networkByWorld.computeIfAbsent(
-        world.getUID(),
-        unused -> new InfrastructureEngine(
-            history(world), config, world.getSeaLevel(), world.getSeed())
-    );
+  public StructureManager structures() {
+    return structures;
   }
 
   /**
    * Returns what a world's generator puts at a position, land or open water.
    *
-   * <p>Beside {@link #history}, and public for the same reason: siting anything world-scale needs
-   * the same answer the generator will give, and a command reporting where those things are has to
-   * agree with what will actually be built.
+   * <p>Public because siting anything world-scale needs the same answer the generator will give,
+   * and a command reporting where those things are has to agree with what will actually be built.
    *
    * @param world the world to ask about
    * @return the lookup
@@ -151,22 +145,33 @@ public class WorldEngine implements Listener {
   }
 
   private ChunkContext newContext(Chunk chunk) {
-    HistoryEngine history = history(chunk.getWorld());
+    World world = chunk.getWorld();
+    NoiseFields fields = fields(world);
+    LandLookup land = land(world);
 
     return new ChunkContext(
         chunk,
         config,
-        history.fields(),
-        history.atChunk(chunk.getX(), chunk.getZ()),
-        infrastructure(chunk.getWorld()),
+        fields,
+        CorruptionZone.resolve(
+            fields, config.getThresholds(), config.getLevels(), chunk.getX(), chunk.getZ()),
         CraterSites.near(
             config.getHugeCraters(),
-            history,
-            land(chunk.getWorld()),
-            chunk.getWorld().getSeed(),
+            fields,
+            config.getThresholds(),
+            land,
+            world.getSeed(),
             chunk.getX(),
             chunk.getZ(),
             1.35
+        ),
+        StructureSites.near(
+            config.getStructures(),
+            structures,
+            land,
+            world.getSeed(),
+            chunk.getX(),
+            chunk.getZ()
         )
     );
   }

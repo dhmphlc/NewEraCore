@@ -43,7 +43,17 @@ public final class Vegetation {
    */
   public static final int REACH = 4;
 
-  /** Ground plants the ashfall kills. */
+  /**
+   * Ground plants the ashfall kills.
+   *
+   * <p>Leaf litter belongs here even though it already looks dead: it is leaves, and outside a
+   * living grove every leaf goes — the canopy rule, applied to the forest floor. Leaving it out of
+   * this set had a second cost: nothing knew it needed footing, so the mantle repaved the ground
+   * under it with a dirt path and left the litter floating on a block that cannot hold it. The
+   * newer ground plants — bushes, dry grasses, wildflowers — are named for the same reason: none
+   * of them sit in the block tags this class otherwise trusts, so an unlisted one is invisible to
+   * every pass and ends up perched on repaved ground.
+   */
   private static final Set<Material> UNDERGROWTH = Set.of(
       Material.SHORT_GRASS,
       Material.TALL_GRASS,
@@ -52,7 +62,13 @@ public final class Vegetation {
       Material.SWEET_BERRY_BUSH,
       Material.SUGAR_CANE,
       Material.VINE,
-      Material.LILY_PAD
+      Material.LILY_PAD,
+      Material.LEAF_LITTER,
+      Material.BUSH,
+      Material.FIREFLY_BUSH,
+      Material.SHORT_DRY_GRASS,
+      Material.TALL_DRY_GRASS,
+      Material.WILDFLOWERS
   );
 
   /**
