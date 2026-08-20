@@ -6,8 +6,8 @@ import com.edysmajler.neweracore.world.corruption.CorruptionProfile;
 import com.edysmajler.neweracore.world.corruption.CorruptionZone;
 import com.edysmajler.neweracore.world.feature.CraterSite;
 import com.edysmajler.neweracore.world.noise.NoiseFields;
-import com.edysmajler.neweracore.world.roads.RoadPlan;
 import com.edysmajler.neweracore.world.structures.StructureSite;
+import com.edysmajler.neweracore.world.towns.TownSite;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
@@ -57,7 +57,7 @@ public class ChunkContext {
 
   private final List<CraterSite> hugeCraterSites;
   private final List<StructureSite> structureSites;
-  private final RoadPlan roads;
+  private final List<TownSite> townSites;
 
   private final ColumnMasks patchMask;
   private final ColumnMasks blightMask;
@@ -73,7 +73,7 @@ public class ChunkContext {
    * @param zone this chunk's corruption zone, resolved once at its centre
    * @param hugeCraterSites the world-scale impact sites reaching this chunk
    * @param structureSites the scattered-structure sites whose footprint touches this chunk
-   * @param roads what the road network puts near this chunk
+   * @param townSites the towns whose footprint touches this chunk
    */
   @SuppressFBWarnings(
       value = {"EI_EXPOSE_REP2", "PREDICTABLE_RANDOM"},
@@ -88,7 +88,7 @@ public class ChunkContext {
       CorruptionZone zone,
       List<CraterSite> hugeCraterSites,
       List<StructureSite> structureSites,
-      RoadPlan roads
+      List<TownSite> townSites
   ) {
     this.chunk = chunk;
     // Height map is required for surfaceY; biome data drives transformer selection
@@ -97,7 +97,7 @@ public class ChunkContext {
     this.zone = zone;
     this.hugeCraterSites = List.copyOf(hugeCraterSites);
     this.structureSites = List.copyOf(structureSites);
-    this.roads = roads;
+    this.townSites = List.copyOf(townSites);
     this.minHeight = chunk.getWorld().getMinHeight();
     this.maxHeight = chunk.getWorld().getMaxHeight() - 1;
 
@@ -170,15 +170,15 @@ public class ChunkContext {
   }
 
   /**
-   * Returns what the road network puts near this chunk.
+   * Returns the towns whose footprint touches this chunk.
    *
-   * <p>Resolved once by the engine, like the corruption zone and the site lists: no pass queries
-   * the network for itself.
+   * <p>Resolved once by the engine, like the corruption zone and the other site lists: no pass
+   * queries the town grid for itself.
    *
-   * @return the road plan, possibly empty
+   * @return the towns, usually empty
    */
-  public RoadPlan roads() {
-    return roads;
+  public List<TownSite> townSites() {
+    return townSites;
   }
 
   /**
@@ -255,6 +255,21 @@ public class ChunkContext {
    */
   public double blightAt(int x, int z) {
     return blightMask.at(x, z);
+  }
+
+  /**
+   * Returns whether a column lies inside a living grove — a stand the ashfall spared.
+   *
+   * <p>The one definition of grove membership, shared by the tree, undergrowth, and mantle passes:
+   * a column two passes disagree about gets dead trees over green grass, or ash paving under a
+   * living canopy — half of each treatment, which is worse than either.
+   *
+   * @param x chunk-relative x, 0-15
+   * @param z chunk-relative z, 0-15
+   * @return true when the grove here is alive
+   */
+  public boolean isLivingGrove(int x, int z) {
+    return blightAt(x, z) < profile().livingGroveThreshold();
   }
 
   /**
@@ -573,6 +588,13 @@ public class ChunkContext {
    * Returns whether a material is something growing on the ground rather than the ground itself.
    */
   private static boolean isCanopyOrClutter(Material material) {
+    // Water stops the walk, as groundY promises: without this, a shallow river's "ground" was its
+    // bed, isFluidColumn called the column land, and everything from ash to houses built into the
+    // water. Only deep water — deeper than the scan band — was ever caught.
+    if (isFluid(material)) {
+      return false;
+    }
+
     if (material.isAir() || !material.isSolid()) {
       // Plants, carpets, and snow layers are not solid, so this covers undergrowth too
       return true;

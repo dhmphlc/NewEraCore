@@ -49,4 +49,10 @@ public class ForestTransformer extends AbstractBiomeTransformer {
   public AshPalette palette() {
     return PALETTE;
   }
+
+  @Override
+  protected boolean groveFloorsStayGreen() {
+    // Dense forest: a green floor here sits under a surviving canopy, not in open country
+    return true;
+  }
 }

@@ -37,6 +37,15 @@ public final class AshMantle {
    */
   private static final Set<Material> THIN_TOPPED = Set.of(Material.DIRT_PATH);
 
+  /** Carpet coverage share kept on built surfaces, so a road stays readable under its dust. */
+  private static final double RESERVED_DUST = 0.2;
+
+  /** How far inside a living grove's blight edge the dusting reaches. */
+  private static final double GROVE_EDGE_BAND = 0.07;
+
+  /** Carpet coverage share on the grove's rim. */
+  private static final double GROVE_EDGE_DUST = 0.5;
+
   private AshMantle() {}
 
   /**
@@ -47,13 +56,15 @@ public final class AshMantle {
    * @param palette the biome's materials
    * @param x chunk-relative x, 0-15
    * @param z chunk-relative z, 0-15
+   * @param greenGroves whether living groves here keep their ground untouched
    */
   public static void applyToColumn(
       ChunkContext context,
       TerrainProbe probe,
       AshPalette palette,
       int x,
-      int z
+      int z,
+      boolean greenGroves
   ) {
     CorruptionProfile profile = context.profile();
     // groundY, not surfaceY: under a canopy the highest block is a leaf, and treating that as the
@@ -66,9 +77,23 @@ public final class AshMantle {
     }
 
     if (context.isReserved(x, z)) {
-      // Something was built here. Ash falls on it like everything else, but the surface underneath
-      // stays: a highway repaved with ash ground is a highway that was never there.
-      layCarpet(context, palette, profile, x, surfaceY, z);
+      // Something was built here. The surface underneath stays — a highway repaved with ash ground
+      // is a highway that was never there — and the dust over it is kept sparse: wind sweeps a
+      // smooth paved surface where it settles into grass, and full-coverage carpet buried the
+      // roads so completely nobody could find one.
+      layCarpet(context, palette, profile, x, surfaceY, z, RESERVED_DUST);
+      return;
+    }
+
+    if (greenGroves && context.isLivingGrove(x, z)) {
+      // In dense forest the fire never reached inside a living grove: the floor keeps its grass
+      // and its soil. Only the rim, where the ashfall starts winning, takes a light dusting over
+      // the green — the blend that keeps a grove from sitting in the ash like a cut-out. Open
+      // country skips this: its "groves" are plain meadow, and green floors everywhere read as
+      // half a vanilla world.
+      if (profile.livingGroveThreshold() - context.blightAt(x, z) < GROVE_EDGE_BAND) {
+        layCarpet(context, palette, profile, x, surfaceY, z, GROVE_EDGE_DUST);
+      }
       return;
     }
 
@@ -124,7 +149,7 @@ public final class AshMantle {
       context.set(x, top, z, palette.deepAsh());
     }
 
-    layCarpet(context, palette, profile, x, top, z);
+    layCarpet(context, palette, profile, x, top, z, 1.0);
   }
 
   /**
@@ -156,13 +181,14 @@ public final class AshMantle {
       CorruptionProfile profile,
       int x,
       int groundY,
-      int z
+      int z,
+      double coverageScale
   ) {
     if (context.typeAt(x, groundY + 1, z) != Material.AIR) {
       return;
     }
 
-    if (context.detailAt(x, z) > profile.ashCarpetCoverage()) {
+    if (context.detailAt(x, z) > profile.ashCarpetCoverage() * coverageScale) {
       return;
     }
 

@@ -4,10 +4,10 @@ import com.edysmajler.neweracore.config.WorldEngineConfig;
 import com.edysmajler.neweracore.world.corruption.CorruptionZone;
 import com.edysmajler.neweracore.world.feature.CraterSites;
 import com.edysmajler.neweracore.world.noise.NoiseFields;
-import com.edysmajler.neweracore.world.roads.RoadNetwork;
 import com.edysmajler.neweracore.world.structures.StructureManager;
 import com.edysmajler.neweracore.world.structures.StructureSites;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
+import com.edysmajler.neweracore.world.towns.TownSites;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
@@ -174,8 +174,8 @@ public class WorldEngine implements Listener {
             chunk.getX(),
             chunk.getZ()
         ),
-        RoadNetwork.near(
-            config.getRoads(),
+        TownSites.near(
+            config.getTowns(),
             land,
             world.getSeed(),
             chunk.getX(),

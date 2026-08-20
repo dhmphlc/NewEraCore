@@ -1,4 +1,4 @@
-package com.edysmajler.neweracore.world.roads;
+package com.edysmajler.neweracore.world.towns;
 
 import com.edysmajler.neweracore.world.ChunkContext;
 import com.edysmajler.neweracore.world.ChunkProcessor;
@@ -19,19 +19,19 @@ import org.bukkit.World;
  * whether the footprint is complete, the site is marked <em>before</em> building, and the last few
  * straggler chunks are generated on demand so a player circling the edge of a town does not leave
  * it forever unbuilt. Towns sit a thousand blocks apart, so completing one can never chain into
- * completing the next — the reason cars, three chunks apart, are not allowed to do this.
+ * completing the next.
  *
- * <p>The houses line the roads leaving the node, doors to the asphalt, because a town is a street
- * with buildings on it — buildings scattered around a point are a camp. Rows step outward along
- * each road with jittered setbacks, a claimed-ground check keeps two rows from colliding at the
- * junction, and a dry well marks the square. Everything comes off the town's seed.
+ * <p>The houses line the streets leaving the centre, doors inward, because a town is a street with
+ * buildings on it — buildings scattered around a point are a camp. Rows step outward along each
+ * street with jittered setbacks, a claimed-ground check keeps two rows from colliding at the
+ * crossing, and a dry well marks the square. Everything comes off the town's seed.
  */
 public final class TownPlacer implements ChunkProcessor {
 
   /** How many ungenerated footprint chunks the placer will generate itself to finish a town. */
   private static final int COMPLETION_BUDGET = 10;
 
-  /** Distances along each road where a house row can stand. */
+  /** Distances along each street where a house row can stand. */
   private static final int[] ROW_SLOTS = {14, 27, 40};
 
   /** Minimum spacing between two house centres. */
@@ -67,7 +67,7 @@ public final class TownPlacer implements ChunkProcessor {
   public void process(ChunkContext context) {
     World world = context.world();
 
-    for (TownSite town : context.roads().towns()) {
+    for (TownSite town : context.townSites()) {
       List<long[]> missing = missingFootprint(world, town);
       if (missing.size() > COMPLETION_BUDGET
           || marker.isPlaced(world, town.centerX(), town.centerZ())) {
@@ -93,18 +93,18 @@ public final class TownPlacer implements ChunkProcessor {
   private void place(StructureField field, TownSite town) {
     Random random = field.random();
 
-    List<TownSite.Heading> roads = town.roads().isEmpty()
-        // A node whose neighbours all came to nothing still gets its hamlet, on compass streets
+    List<TownSite.Heading> streets = town.streets().isEmpty()
+        // A town whose neighbours all came to nothing still gets its hamlet, on compass streets
         ? List.of(new TownSite.Heading(1.0, 0.0), new TownSite.Heading(0.0, 1.0))
-        : town.roads();
+        : town.streets();
 
     // Every slot a house could stand in: {which road, distance along it, which side}. Shuffled so
     // which slots stay empty varies per town instead of always trimming the far end of the street.
     List<int[]> slots = new ArrayList<>();
-    for (int roadIndex = 0; roadIndex < roads.size(); roadIndex++) {
+    for (int streetIndex = 0; streetIndex < streets.size(); streetIndex++) {
       for (int along : ROW_SLOTS) {
         for (int side = -1; side <= 1; side += 2) {
-          slots.add(new int[] {roadIndex, along, side});
+          slots.add(new int[] {streetIndex, along, side});
         }
       }
     }
@@ -118,49 +118,54 @@ public final class TownPlacer implements ChunkProcessor {
         break;
       }
 
-      TownSite.Heading road = roads.get(slot[0]);
+      TownSite.Heading street = streets.get(slot[0]);
       int along = slot[1];
       int side = slot[2];
       int setback = 8 + random.nextInt(3);
 
       int x = town.centerX()
-          + (int) Math.round(road.x() * along - road.z() * setback * side);
+          + (int) Math.round(street.x() * along - street.z() * setback * side);
       int z = town.centerZ()
-          + (int) Math.round(road.z() * along + road.x() * setback * side);
+          + (int) Math.round(street.z() * along + street.x() * setback * side);
 
       if (tooClose(claimed, x, z) || field.isFluidColumn(x, z)) {
         continue;
       }
 
-      // The door looks from the house back across its setback, at the road it stands on
-      int facing = quarterTowards(road.z() * side, -road.x() * side);
+      // The door looks from the house back across its setback, into the street
+      int facing = quarterTowards(street.z() * side, -street.x() * side);
 
       RuinedHouse.build(field, x, z, facing, random.nextLong(), houseLoot);
       claimed.add(new int[] {x, z});
     }
 
-    buildWell(field, random, town, roads.get(0));
+    buildWell(field, random, town, streets.get(0));
   }
 
   /**
-   * Sets the dry well down on the square, off the asphalt.
+   * Sets the dry well down on the square.
    */
   private static void buildWell(
       StructureField field,
       Random random,
       TownSite town,
-      TownSite.Heading road
+      TownSite.Heading street
   ) {
     if (random.nextDouble() >= 0.7) {
       return;
     }
 
-    // Diagonally off the junction, clear of every road's paving
-    int x = town.centerX() + (int) Math.round((road.x() - road.z()) * 8.0);
-    int z = town.centerZ() + (int) Math.round((road.z() + road.x()) * 8.0);
+    // Diagonally off the crossing, clear of the house rows
+    int x = town.centerX() + (int) Math.round((street.x() - street.z()) * 8.0);
+    int z = town.centerZ() + (int) Math.round((street.z() + street.x()) * 8.0);
 
-    if (field.isFluidColumn(x, z)) {
-      return;
+    // Every column of the ring must be dry, not just the middle of it
+    for (int du = -1; du <= 1; du++) {
+      for (int dv = -1; dv <= 1; dv++) {
+        if (field.isFluidColumn(x + du, z + dv)) {
+          return;
+        }
+      }
     }
 
     int ground = field.groundY(x, z);

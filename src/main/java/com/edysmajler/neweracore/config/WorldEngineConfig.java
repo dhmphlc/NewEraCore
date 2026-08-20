@@ -48,8 +48,8 @@ public class WorldEngineConfig {
 
   @Valid
   @NotNull
-  @JsonProperty("roads")
-  private RoadsConfig roads = new RoadsConfig();
+  @JsonProperty("towns")
+  private TownsConfig towns = new TownsConfig();
 
   @Valid
   @NotNull
@@ -95,12 +95,12 @@ public class WorldEngineConfig {
   }
 
   /**
-   * Returns the road network settings: highways, local roads, towns, and abandoned cars.
+   * Returns the ruined-town settings.
    *
-   * @return the roads config
+   * @return the towns config
    */
-  public RoadsConfig getRoads() {
-    return roads;
+  public TownsConfig getTowns() {
+    return towns;
   }
 
   public OreConfig getOres() {

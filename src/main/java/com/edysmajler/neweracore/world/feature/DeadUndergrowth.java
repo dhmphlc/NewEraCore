@@ -11,13 +11,16 @@ import org.bukkit.Material;
  *
  * <p>Survival is decided per <em>grove</em>, not per plant: inside a living grove the undergrowth
  * is
- * left completely alone, and outside one it is gone. Rolling for each plant separately is what left
- * the ground looking picked at, with single blades of grass standing in an ash field.
+ * left completely alone — grass included — and outside one it is gone. Rolling for each plant
+ * separately is what left the ground looking picked at, with single blades of grass standing in an
+ * ash field.
  *
- * <p>Grass is the one exception to the grove rule, and it is absolute: short and tall grass are
- * removed from every column in the world, living grove or not. A grove may look alive, but green
- * blades poking out of an ash field are the loudest remaining sign that the ground was edited
- * rather than buried.
+ * <p>Whether a grove keeps its <em>grass</em> depends on the biome group. In dense forest the
+ * grove floor stays completely green — a living stand over a swept-bare floor read as its own
+ * artefact — but in open country the grove test marks plain meadow with no canopy to explain the
+ * survival, and with green floors on everywhere the plains came out half-vanilla. So forest groves
+ * keep everything; open-country groves keep their plants but lose their grass; outside a grove,
+ * grass is removed from every column in the world.
  *
  * <p>Nothing is simply deleted where it can be helped. Cleared plants become dead bushes often
  * enough
@@ -36,15 +39,23 @@ public final class DeadUndergrowth {
    * @param palette the biome's materials
    * @param x chunk-relative x, 0-15
    * @param z chunk-relative z, 0-15
+   * @param greenGroves whether living groves here keep their floor untouched, grass included
    */
   public static void applyToColumn(
       ChunkContext context,
       AshPalette palette,
       int x,
-      int z
+      int z,
+      boolean greenGroves
   ) {
     CorruptionProfile profile = context.profile();
-    boolean grove = DeadTrees.isLiving(context, profile, x, z);
+    boolean grove = context.isLivingGrove(x, z);
+
+    // In dense forest the grove keeps everything, grass included: the fire never reached in here,
+    // and a living canopy over a swept floor is half of each treatment — worse than either
+    if (grove && greenGroves) {
+      return;
+    }
 
     int floor = context.scanFloor(x, z);
     // Plants do not count towards the snapshot's surface height, and the tall ones stand more than
@@ -60,8 +71,8 @@ public final class DeadUndergrowth {
       }
 
       if (grove) {
-        // The grove keeps everything else, but grass survives nowhere. No litter either: a dead
-        // bush dropped into living undergrowth is the odd thing out.
+        // An open-country grove keeps its plants but not its grass: with no dense canopy above
+        // to explain the survival, green blades in an ash field read as an edit, not an island
         if (Vegetation.isGrass(material)) {
           context.clear(x, y, z);
         }

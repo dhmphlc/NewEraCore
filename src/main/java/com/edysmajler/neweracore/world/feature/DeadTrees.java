@@ -51,7 +51,7 @@ public final class DeadTrees {
     stripDeadCanopy(context, profile, scan);
 
     for (Tree tree : scan.trees()) {
-      if (isLiving(context, profile, tree.x(), tree.z())) {
+      if (context.isLivingGrove(tree.x(), tree.z())) {
         continue;
       }
 
@@ -85,7 +85,7 @@ public final class DeadTrees {
       AshPalette palette
   ) {
     for (BlockPosition log : scan.logs()) {
-      if (isLiving(context, profile, log.x(), log.z())) {
+      if (context.isLivingGrove(log.x(), log.z())) {
         continue;
       }
 
@@ -108,24 +108,6 @@ public final class DeadTrees {
   }
 
   /**
-   * Returns whether the stand at a column survived.
-   *
-   * @param context the chunk being transformed
-   * @param profile the effective rules
-   * @param x chunk-relative x, 0-15
-   * @param z chunk-relative z, 0-15
-   * @return true when the trees there are still alive
-   */
-  public static boolean isLiving(
-      ChunkContext context,
-      CorruptionProfile profile,
-      int x,
-      int z
-  ) {
-    return context.blightAt(x, z) < profile.livingGroveThreshold();
-  }
-
-  /**
    * Removes every leaf outside a living grove.
    *
    * <p>Whole-canopy removal rather than a per-leaf roll, so there are no half-eaten crowns and no
@@ -140,7 +122,7 @@ public final class DeadTrees {
       TreeScan scan
   ) {
     for (BlockPosition leaf : scan.leaves()) {
-      if (isLiving(context, profile, leaf.x(), leaf.z())) {
+      if (context.isLivingGrove(leaf.x(), leaf.z())) {
         continue;
       }
 

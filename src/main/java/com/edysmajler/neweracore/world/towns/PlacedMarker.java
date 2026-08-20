@@ -1,4 +1,4 @@
-package com.edysmajler.neweracore.world.roads;
+package com.edysmajler.neweracore.world.towns;
 
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -6,8 +6,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Records that a road-network placement — a town, a car — has been built, so it builds exactly
- * once.
+ * Records that a town has been built, so it builds exactly once.
  *
  * <p>The same contract as {@code StructureMarker}: the mark lives in the persistent data container
  * of the chunk holding the placement's centre, written <em>before</em> building, so two footprint
@@ -15,8 +14,8 @@ import org.bukkit.plugin.Plugin;
  * eligible for a second, compounding attempt. It travels in the region file, so the guarantee
  * survives restarts for free.
  *
- * <p>Unlike structure sites, several cars can share a centre chunk, so the key carries the
- * placement's own coordinates rather than being one fixed name per chunk.
+ * <p>The key carries the placement's own coordinates rather than being one fixed name per chunk,
+ * so any future placement kind that packs several sites into one chunk can reuse it unchanged.
  */
 public final class PlacedMarker {
 

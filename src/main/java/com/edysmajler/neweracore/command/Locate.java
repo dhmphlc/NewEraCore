@@ -2,10 +2,10 @@ package com.edysmajler.neweracore.command;
 
 import com.edysmajler.neweracore.config.PluginConfig;
 import com.edysmajler.neweracore.world.WorldEngine;
-import com.edysmajler.neweracore.world.roads.RoadNetwork;
-import com.edysmajler.neweracore.world.roads.TownSite;
 import com.edysmajler.neweracore.world.structures.StructureSite;
 import com.edysmajler.neweracore.world.structures.StructureSites;
+import com.edysmajler.neweracore.world.towns.TownSite;
+import com.edysmajler.neweracore.world.towns.TownSites;
 import dev.jorel.commandapi.executors.CommandArguments;
 import dev.jorel.commandapi.executors.PlayerCommandExecutor;
 import java.util.List;
@@ -109,8 +109,8 @@ public class Locate implements PlayerCommandExecutor {
     int blockZ = location.getBlockZ();
     World world = player.getWorld();
 
-    List<TownSite> found = RoadNetwork.townsAround(
-        config.getWorldEngine().getRoads(),
+    List<TownSite> found = TownSites.around(
+        config.getWorldEngine().getTowns(),
         engine.land(world),
         world.getSeed(),
         blockX,
@@ -132,12 +132,12 @@ public class Locate implements PlayerCommandExecutor {
     TownSite town = found.get(0);
     player.sendRichMessage(String.format(
         Locale.ROOT,
-        "%s<gray>Nearest <aqua>town</aqua><gray>: %s  %d blocks %s <dark_gray>(%d roads)",
+        "%s<gray>Nearest <aqua>town</aqua><gray>: %s  %d blocks %s <dark_gray>(%d streets)",
         config.getMessagePrefix(),
         TeleportLink.to(town.centerX(), town.centerZ()),
         Math.round(town.distanceTo(blockX, blockZ)),
         Bearing.of(town.centerX() - (double) blockX, town.centerZ() - (double) blockZ),
-        town.roads().size()
+        town.streets().size()
     ));
   }
 

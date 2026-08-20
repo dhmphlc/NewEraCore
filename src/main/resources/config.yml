@@ -147,29 +147,15 @@ world-engine:
     radius-max: 36
     depth-factor: 0.5   # depth relative to radius
 
-  # THE ROAD NETWORK — pre-war infrastructure: highways, local roads, the towns they connect, and
-  # the cars abandoned on them. Everything derives from the seed, like structures and craters, so
-  # every chunk agrees where a road runs without loading anything, and /nec locate town works over
-  # terrain that has never generated.
-  #
-  # Roads run FIRST in the pipeline because they predate the event: the ashfall settles over the
-  # asphalt (paved ground is never repaved, only dusted), whole stretches lie buried under the
-  # drifts — more of them the worse the corruption — and craters and crashes tear the road up.
-  # Roads are never paved across water: a road that dips into a river and climbs out the far bank
-  # is a washed-out crossing.
-  #
-  # Towns sit on the local-road grid nodes: ruined houses line the roads leaving the node, doors
-  # to the asphalt, with household loot inside (the built-in `civilian` table, so redefining that
-  # table under structures.loot retunes the towns too). Highways run on their own sparser grid,
-  # wider, with a dashed centre line and utility poles. Cars are strewn along every road —
-  # sedans, vans, pickups, some burnt out, some with a stocked boot.
-  roads:
+  # RUINED TOWNS — clusters of collapsed houses on a seeded grid, like structure sites, so every
+  # chunk a town touches agrees where it stands and /nec locate town works over terrain that has
+  # never generated. Houses line unpaved streets pointing at the neighbouring towns, doors inward,
+  # walls collapsed toward one failed corner, with household loot inside (the built-in `civilian`
+  # table, so redefining that table under structures.loot retunes the towns too).
+  towns:
     enabled: true
-    town-spacing: 1024     # blocks between candidate town cells; local roads connect neighbours
-    town-chance: 0.7       # chance a cell holds a town — it also needs land at its node
-    highway-spacing: 3072  # blocks between candidate highway cells
-    highway-chance: 0.85   # kept high: a highway that keeps petering out is a country lane
-    car-spacing: 56        # average blocks of road per abandoned car
+    spacing: 1024   # blocks between candidate town cells; larger means rarer
+    chance: 0.7     # chance a cell holds a town — it also needs land at its node
 
   # Ore torn out of the ground by an impact and left lying in the open.
   ores:

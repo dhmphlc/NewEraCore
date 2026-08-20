@@ -1,38 +1,39 @@
-package com.edysmajler.neweracore.world.roads;
+package com.edysmajler.neweracore.world.towns;
 
 import java.util.List;
 
 /**
- * One resolved town: where it stands and which ways its roads leave.
+ * One resolved town: where it stands and which ways its streets run.
  *
- * <p>Towns sit on the local-road grid nodes, so a town always has roads and a local road always
- * leads somewhere — the two are one system, not two coincidences. Like a structure site, a town is
- * a pure function of the seed: every chunk its footprint touches computes the same town without
- * loading anything.
+ * <p>Like a structure site, a town is a pure function of the seed: every chunk its footprint
+ * touches computes the same town without loading anything, and {@code /nec locate town} can answer
+ * about terrain that has never generated. The streets point at the neighbouring towns — unpaved
+ * lanes the houses line up along, so a town reads as a settlement with a direction rather than a
+ * scatter of boxes.
  *
- * @param centerX absolute block x of the town centre, on the road node
+ * @param centerX absolute block x of the town centre
  * @param centerZ absolute block z of the town centre
  * @param radius how far from the centre the town's buildings can reach, in blocks
  * @param seed per-town seed for its layout and ruin texture
- * @param roads the directions roads leave the centre in, unit vectors; empty for a town whose
- *     neighbours all came to nothing
+ * @param streets the directions the streets leave the centre in, unit vectors; empty for a town
+ *     whose neighbours all came to nothing
  */
 public record TownSite(
     int centerX,
     int centerZ,
     int radius,
     long seed,
-    List<Heading> roads
+    List<Heading> streets
 ) {
 
   /** A unit direction in the horizontal plane. */
   public record Heading(double x, double z) {}
 
   /**
-   * Copies the road list so a site is immutable from birth.
+   * Copies the street list so a site is immutable from birth.
    */
   public TownSite {
-    roads = List.copyOf(roads);
+    streets = List.copyOf(streets);
   }
 
   /**

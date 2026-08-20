@@ -29,8 +29,8 @@ public abstract class AbstractBiomeTransformer implements BiomeTransformer {
   @Override
   public void transformColumn(ChunkContext context, TerrainProbe probe, int x, int z) {
     DryBeds.applyToColumn(context, probe, palette(), x, z);
-    DeadUndergrowth.applyToColumn(context, palette(), x, z);
-    AshMantle.applyToColumn(context, probe, palette(), x, z);
+    DeadUndergrowth.applyToColumn(context, palette(), x, z, groveFloorsStayGreen());
+    AshMantle.applyToColumn(context, probe, palette(), x, z, groveFloorsStayGreen());
   }
 
   @Override
@@ -50,5 +50,19 @@ public abstract class AbstractBiomeTransformer implements BiomeTransformer {
    */
   protected boolean hasTrees() {
     return true;
+  }
+
+  /**
+   * Returns whether a living grove here keeps its floor green — grass, soil, everything.
+   *
+   * <p>Off by default on purpose. The grove test is a noise threshold, not a tree count, so in
+   * open country it marks stretches of plain meadow: with green floors on everywhere, the plains
+   * came out reading half-vanilla. Only the dense forest groups turn this on, where a green floor
+   * sits under a visibly surviving canopy and reads as the fire having gone around it.
+   *
+   * @return true when living groves keep untouched ground
+   */
+  protected boolean groveFloorsStayGreen() {
+    return false;
   }
 }

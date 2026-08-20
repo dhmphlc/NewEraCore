@@ -172,6 +172,54 @@ public final class StructureField {
     for (int above = y + 1; isPerched(typeAt(blockX, above, blockZ)); above++) {
       set(blockX, above, blockZ, Material.AIR);
     }
+
+    // The chunk pipeline gets this cleanup from HangingPlants, which runs after everything — but
+    // a structure builds after every footprint chunk's pipeline has finished, so no later pass
+    // will ever see what it strips. A vine whose anchor this removal took has to come down here,
+    // and unlike the pipeline this writer may read across borders, so no edge caveat applies.
+    pruneStrand(blockX, y - 1, blockZ);
+    pruneStrand(blockX + 1, y, blockZ);
+    pruneStrand(blockX - 1, y, blockZ);
+    pruneStrand(blockX, y, blockZ + 1);
+    pruneStrand(blockX, y, blockZ - 1);
+  }
+
+  /**
+   * Takes down a hanging strand from its top, so long as nothing else is holding it.
+   */
+  private void pruneStrand(int blockX, int y, int blockZ) {
+    while (Vegetation.isHanging(typeAt(blockX, y, blockZ))
+        && !isAnchored(blockX, y, blockZ)) {
+      set(blockX, y, blockZ, Material.AIR);
+      y--;
+    }
+  }
+
+  /**
+   * Returns whether a hanging plant still has something to hold on to.
+   *
+   * <p>The same judgement HangingPlants makes, with world reads instead of chunk-bounded ones.
+   */
+  private boolean isAnchored(int blockX, int y, int blockZ) {
+    if (Vegetation.isHanging(typeAt(blockX, y + 1, blockZ))) {
+      return true;
+    }
+
+    // Only vines are strictly downward-hanging; lichen and its relatives also sit on top faces
+    if (typeAt(blockX, y, blockZ) != Material.VINE && isAnchor(blockX, y - 1, blockZ)) {
+      return true;
+    }
+
+    return isAnchor(blockX, y + 1, blockZ)
+        || isAnchor(blockX + 1, y, blockZ)
+        || isAnchor(blockX - 1, y, blockZ)
+        || isAnchor(blockX, y, blockZ + 1)
+        || isAnchor(blockX, y, blockZ - 1);
+  }
+
+  private boolean isAnchor(int blockX, int y, int blockZ) {
+    Material material = typeAt(blockX, y, blockZ);
+    return material.isSolid() && !Vegetation.isStanding(material);
   }
 
   /**
@@ -188,6 +236,12 @@ public final class StructureField {
   }
 
   private static boolean isCanopyOrClutter(Material material) {
+    // Water stops the walk, as groundY promises: without this a shallow river read as land, and
+    // houses were cut square into the water
+    if (ChunkContext.isFluid(material)) {
+      return false;
+    }
+
     if (material.isAir() || !material.isSolid()) {
       return true;
     }

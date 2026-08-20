@@ -1,4 +1,4 @@
-package com.edysmajler.neweracore.world.roads;
+package com.edysmajler.neweracore.world.towns;
 
 import com.edysmajler.neweracore.world.structures.StructureField;
 import com.edysmajler.neweracore.world.structures.loot.LootStocker;
@@ -60,6 +60,19 @@ public final class RuinedHouse {
 
     int halfU = 3 + random.nextInt(2);
     int halfV = 3 + random.nextInt(2);
+
+    // The whole footprint must be dry, not just the centre: a house that merely reached a river
+    // bank cut a square of the water out and stood in the channel — nothing about a ruin explains
+    // a hole in a river
+    for (int u = -halfU; u <= halfU; u++) {
+      for (int v = -halfV; v <= halfV; v++) {
+        if (field.isFluidColumn(
+            centerX + rotateX(u, v, facing), centerZ + rotateZ(u, v, facing))) {
+          return;
+        }
+      }
+    }
+
     int floorY = field.groundY(centerX, centerZ);
 
     boolean stone = random.nextBoolean();
