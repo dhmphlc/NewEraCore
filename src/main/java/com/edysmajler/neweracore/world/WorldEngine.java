@@ -4,6 +4,7 @@ import com.edysmajler.neweracore.config.WorldEngineConfig;
 import com.edysmajler.neweracore.world.corruption.CorruptionZone;
 import com.edysmajler.neweracore.world.feature.CraterSites;
 import com.edysmajler.neweracore.world.noise.NoiseFields;
+import com.edysmajler.neweracore.world.roads.RoadNetwork;
 import com.edysmajler.neweracore.world.structures.StructureManager;
 import com.edysmajler.neweracore.world.structures.StructureSites;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
@@ -168,6 +169,13 @@ public class WorldEngine implements Listener {
         StructureSites.near(
             config.getStructures(),
             structures,
+            land,
+            world.getSeed(),
+            chunk.getX(),
+            chunk.getZ()
+        ),
+        RoadNetwork.near(
+            config.getRoads(),
             land,
             world.getSeed(),
             chunk.getX(),

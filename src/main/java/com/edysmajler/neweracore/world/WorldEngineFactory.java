@@ -14,6 +14,10 @@ import com.edysmajler.neweracore.world.biome.SavannaTransformer;
 import com.edysmajler.neweracore.world.biome.SwampTransformer;
 import com.edysmajler.neweracore.world.biome.TaigaTransformer;
 import com.edysmajler.neweracore.world.feature.HangingPlants;
+import com.edysmajler.neweracore.world.roads.CarPlacer;
+import com.edysmajler.neweracore.world.roads.PlacedMarker;
+import com.edysmajler.neweracore.world.roads.Roads;
+import com.edysmajler.neweracore.world.roads.TownPlacer;
 import com.edysmajler.neweracore.world.structures.FighterJet;
 import com.edysmajler.neweracore.world.structures.SchematicStructure;
 import com.edysmajler.neweracore.world.structures.StructureDefinition;
@@ -58,15 +62,27 @@ public final class WorldEngineFactory {
     BiomeTransformerManager manager =
         new BiomeTransformerManager(transformers, new DefaultTransformer());
 
-    StructureManager structures = structures(plugin, config);
+    LootTables lootTables = LootTables.load(config.getStructures(), plugin.getLogger());
+    StructureManager structures = structures(plugin, config, lootTables);
 
-    // Order is the design. Structures come after the biome transformation because a crash is a
-    // recent event: its crater takes a bite out of the ashen ground rather than being buried by
-    // it. HangingPlants stays last, cleaning up after everything that removes a block — including
-    // passes nobody has written yet.
+    // Order is the design. Roads come first because they are infrastructure from before the
+    // event: the ashfall settles over them (their columns are reserved, so the mantle dusts but
+    // never repaves), and craters and crashes tear them up. Structures and towns come after the
+    // biome transformation because they are read as recent — their damage takes a bite out of the
+    // ashen ground rather than being buried by it. Cars come after towns so a wreck in a town
+    // street sits on whatever the town did to the ground. HangingPlants stays last, cleaning up
+    // after everything that removes a block — including passes nobody has written yet.
     List<ChunkProcessor> pipeline = List.of(
+        new Roads(),
         new BiomeTransformationProcessor(manager),
         new StructurePlacer(structures, new StructureMarker(plugin), plugin.getLogger()),
+        new TownPlacer(
+            new PlacedMarker(plugin, "town-placed"),
+            lootTables.resolve(LootTables.CIVILIAN, plugin.getLogger()),
+            plugin.getLogger()),
+        new CarPlacer(
+            new PlacedMarker(plugin, "car-placed"),
+            lootTables.resolve(LootTables.CIVILIAN, plugin.getLogger())),
         new HangingPlants()
     );
 
@@ -82,10 +98,9 @@ public final class WorldEngineFactory {
    * <p>Registration order takes part in the weighted draw, so keep the built-ins first and stable
    * — reordering this list moves every structure in every existing world's ungenerated terrain.
    */
-  private static StructureManager structures(Plugin plugin, WorldEngineConfig config) {
+  private static StructureManager structures(
+      Plugin plugin, WorldEngineConfig config, LootTables lootTables) {
     List<StructureDefinition> definitions = new ArrayList<>();
-
-    LootTables lootTables = LootTables.load(config.getStructures(), plugin.getLogger());
 
     TemplateConfig jet = config.getStructures().templateFor("fighter_jet");
     if (jet.isEnabled()) {

@@ -6,6 +6,7 @@ import com.edysmajler.neweracore.world.corruption.CorruptionProfile;
 import com.edysmajler.neweracore.world.corruption.CorruptionZone;
 import com.edysmajler.neweracore.world.feature.CraterSite;
 import com.edysmajler.neweracore.world.noise.NoiseFields;
+import com.edysmajler.neweracore.world.roads.RoadPlan;
 import com.edysmajler.neweracore.world.structures.StructureSite;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
@@ -56,6 +57,7 @@ public class ChunkContext {
 
   private final List<CraterSite> hugeCraterSites;
   private final List<StructureSite> structureSites;
+  private final RoadPlan roads;
 
   private final ColumnMasks patchMask;
   private final ColumnMasks blightMask;
@@ -71,6 +73,7 @@ public class ChunkContext {
    * @param zone this chunk's corruption zone, resolved once at its centre
    * @param hugeCraterSites the world-scale impact sites reaching this chunk
    * @param structureSites the scattered-structure sites whose footprint touches this chunk
+   * @param roads what the road network puts near this chunk
    */
   @SuppressFBWarnings(
       value = {"EI_EXPOSE_REP2", "PREDICTABLE_RANDOM"},
@@ -84,7 +87,8 @@ public class ChunkContext {
       NoiseFields fields,
       CorruptionZone zone,
       List<CraterSite> hugeCraterSites,
-      List<StructureSite> structureSites
+      List<StructureSite> structureSites,
+      RoadPlan roads
   ) {
     this.chunk = chunk;
     // Height map is required for surfaceY; biome data drives transformer selection
@@ -93,6 +97,7 @@ public class ChunkContext {
     this.zone = zone;
     this.hugeCraterSites = List.copyOf(hugeCraterSites);
     this.structureSites = List.copyOf(structureSites);
+    this.roads = roads;
     this.minHeight = chunk.getWorld().getMinHeight();
     this.maxHeight = chunk.getWorld().getMaxHeight() - 1;
 
@@ -162,6 +167,18 @@ public class ChunkContext {
    */
   public List<StructureSite> structureSites() {
     return structureSites;
+  }
+
+  /**
+   * Returns what the road network puts near this chunk.
+   *
+   * <p>Resolved once by the engine, like the corruption zone and the site lists: no pass queries
+   * the network for itself.
+   *
+   * @return the road plan, possibly empty
+   */
+  public RoadPlan roads() {
+    return roads;
   }
 
   /**

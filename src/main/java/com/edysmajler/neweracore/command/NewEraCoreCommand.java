@@ -5,6 +5,7 @@ import com.edysmajler.neweracore.config.PluginConfig;
 import com.edysmajler.neweracore.world.WorldEngine;
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.arguments.MultiLiteralArgument;
+import java.util.stream.Stream;
 import org.bukkit.plugin.Plugin;
 
 /**
@@ -43,7 +44,11 @@ public class NewEraCoreCommand extends BaseCommand {
             .withSubcommand(
                 new CommandAPICommand("locate")
                     .withArguments(new MultiLiteralArgument(
-                        Locate.TARGET, engine.structures().ids().toArray(new String[0])))
+                        Locate.TARGET,
+                        Stream.concat(
+                            engine.structures().ids().stream(),
+                            Stream.of(Locate.TOWN)
+                        ).toArray(String[]::new)))
                     .executesPlayer(new Locate(config, engine))
             )
     );

@@ -48,6 +48,11 @@ public class WorldEngineConfig {
 
   @Valid
   @NotNull
+  @JsonProperty("roads")
+  private RoadsConfig roads = new RoadsConfig();
+
+  @Valid
+  @NotNull
   @JsonProperty("ores")
   private OreConfig ores = new OreConfig();
 
@@ -87,6 +92,15 @@ public class WorldEngineConfig {
 
   public HugeCraterConfig getHugeCraters() {
     return hugeCraters;
+  }
+
+  /**
+   * Returns the road network settings: highways, local roads, towns, and abandoned cars.
+   *
+   * @return the roads config
+   */
+  public RoadsConfig getRoads() {
+    return roads;
   }
 
   public OreConfig getOres() {

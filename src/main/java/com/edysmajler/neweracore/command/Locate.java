@@ -2,6 +2,8 @@ package com.edysmajler.neweracore.command;
 
 import com.edysmajler.neweracore.config.PluginConfig;
 import com.edysmajler.neweracore.world.WorldEngine;
+import com.edysmajler.neweracore.world.roads.RoadNetwork;
+import com.edysmajler.neweracore.world.roads.TownSite;
 import com.edysmajler.neweracore.world.structures.StructureSite;
 import com.edysmajler.neweracore.world.structures.StructureSites;
 import dev.jorel.commandapi.executors.CommandArguments;
@@ -46,9 +48,17 @@ public class Locate implements PlayerCommandExecutor {
     this.engine = engine;
   }
 
+  /** The literal that asks for the nearest town rather than a scattered structure. */
+  public static final String TOWN = "town";
+
   @Override
   public void run(Player player, CommandArguments args) {
     String target = String.valueOf(args.get(TARGET)).toLowerCase(Locale.ROOT);
+
+    if (TOWN.equals(target)) {
+      locateTown(player);
+      return;
+    }
 
     if (engine.structures().byId(target).isEmpty()) {
       player.sendRichMessage(config.getMessagePrefix()
@@ -85,6 +95,50 @@ public class Locate implements PlayerCommandExecutor {
     }
 
     report(player, found.get(0), blockX, blockZ);
+  }
+
+  /**
+   * Finds the nearest town on the road network.
+   *
+   * <p>Same arithmetic-over-the-seed contract as the structures: the answer is where the town
+   * <em>will</em> be, and one in terrain that generated before the plugin will not be there.
+   */
+  private void locateTown(Player player) {
+    Location location = player.getLocation();
+    int blockX = location.getBlockX();
+    int blockZ = location.getBlockZ();
+    World world = player.getWorld();
+
+    List<TownSite> found = RoadNetwork.townsAround(
+        config.getWorldEngine().getRoads(),
+        engine.land(world),
+        world.getSeed(),
+        blockX,
+        blockZ,
+        SEARCH_RADIUS
+    );
+
+    if (found.isEmpty()) {
+      player.sendRichMessage(String.format(
+          Locale.ROOT,
+          "%s<gray>No town within %d blocks. Towns need land at their node, so coastlines push "
+              + "them apart.",
+          config.getMessagePrefix(),
+          SEARCH_RADIUS
+      ));
+      return;
+    }
+
+    TownSite town = found.get(0);
+    player.sendRichMessage(String.format(
+        Locale.ROOT,
+        "%s<gray>Nearest <aqua>town</aqua><gray>: %s  %d blocks %s <dark_gray>(%d roads)",
+        config.getMessagePrefix(),
+        TeleportLink.to(town.centerX(), town.centerZ()),
+        Math.round(town.distanceTo(blockX, blockZ)),
+        Bearing.of(town.centerX() - (double) blockX, town.centerZ() - (double) blockZ),
+        town.roads().size()
+    ));
   }
 
   /**

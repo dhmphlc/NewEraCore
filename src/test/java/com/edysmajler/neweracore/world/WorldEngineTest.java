@@ -17,6 +17,7 @@ import com.edysmajler.neweracore.config.HugeCraterConfig;
 import com.edysmajler.neweracore.config.LevelsConfig;
 import com.edysmajler.neweracore.config.NoiseConfig;
 import com.edysmajler.neweracore.config.OreConfig;
+import com.edysmajler.neweracore.config.RoadsConfig;
 import com.edysmajler.neweracore.config.StructuresConfig;
 import com.edysmajler.neweracore.config.ThresholdConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
@@ -148,6 +149,7 @@ class WorldEngineTest {
     when(config.getLevels()).thenReturn(new LevelsConfig());
     when(config.getStructures()).thenReturn(new StructuresConfig());
     when(config.getHugeCraters()).thenReturn(new HugeCraterConfig());
+    when(config.getRoads()).thenReturn(new RoadsConfig());
     when(config.getOres()).thenReturn(new OreConfig());
     return config;
   }

@@ -37,14 +37,28 @@ public final class StructureField {
    * @param world the world to write into
    * @param site the site being built, whose seed drives all texture
    */
+  public StructureField(World world, StructureSite site) {
+    this(world, site.seed());
+  }
+
+  /**
+   * Creates a field over one placement identified only by its seed.
+   *
+   * <p>For placements that are not structure-scatter sites — a town, a car on a road — but carry
+   * the same duties: whole-shape building over finished terrain, physics off, texture fixed by
+   * the seed.
+   *
+   * @param world the world to write into
+   * @param seed the placement's seed, which drives all texture
+   */
   @SuppressFBWarnings(
       value = {"EI_EXPOSE_REP2", "PREDICTABLE_RANDOM"},
       justification = "The world is a live handle that must be kept to write blocks, and the "
           + "seeded java.util.Random is deliberate: a site must build identically for its seed."
   )
-  public StructureField(World world, StructureSite site) {
+  public StructureField(World world, long seed) {
     this.world = world;
-    this.random = new Random(site.seed());
+    this.random = new Random(seed);
   }
 
   /**
