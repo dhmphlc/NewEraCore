@@ -1,12 +1,13 @@
 package com.edysmajler.neweracore.world.structures;
 
 import com.edysmajler.neweracore.world.structures.CrashScars.Frame;
+import com.edysmajler.neweracore.world.structures.loot.LootStocker;
+import com.edysmajler.neweracore.world.structures.loot.LootTable;
+import com.edysmajler.neweracore.world.structures.loot.LootTables;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
 import java.util.Random;
 import org.bukkit.Material;
 import org.bukkit.block.Chest;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 
 /**
  * A crashed fighter jet: skid trench, impact crater, the airframe, debris, and the pilot's kit.
@@ -41,19 +42,22 @@ public final class FighterJet implements StructureDefinition {
   private static final int TRENCH_TO = -10;
 
   private final double weight;
+  private final LootTable loot;
 
-  /** Creates the jet with an equal share of the draw. */
+  /** Creates the jet with an equal share of the draw and the standard military kit. */
   public FighterJet() {
-    this(1.0);
+    this(1.0, LootTables.builtIn(LootTables.MILITARY));
   }
 
   /**
-   * Creates the jet with a configured share of the draw.
+   * Creates the jet with a configured share of the draw and loadout.
    *
    * @param weight this structure's share when a site picks what stands on it
+   * @param loot what the pilot's kit holds, or null for an empty chest
    */
-  public FighterJet(double weight) {
+  public FighterJet(double weight, LootTable loot) {
     this.weight = weight;
+    this.loot = loot;
   }
 
   @Override
@@ -273,30 +277,9 @@ public final class FighterJet implements StructureDefinition {
 
     field.set(x, baseY, z, Material.CHEST);
 
-    if (field.blockAt(x, baseY, z).getState() instanceof Chest chest) {
-      fillKit(chest.getBlockInventory(), random);
+    if (loot != null && field.blockAt(x, baseY, z).getState() instanceof Chest chest) {
+      LootStocker.stock(chest.getBlockInventory(), loot, random);
     }
-  }
-
-  private static void fillKit(Inventory inventory, Random random) {
-    stash(inventory, random, new ItemStack(Material.IRON_INGOT, 3 + random.nextInt(6)));
-    stash(inventory, random, new ItemStack(Material.GUNPOWDER, 2 + random.nextInt(5)));
-    stash(inventory, random, new ItemStack(Material.ARROW, 4 + random.nextInt(9)));
-    stash(inventory, random, new ItemStack(Material.BREAD, 1 + random.nextInt(3)));
-
-    if (random.nextDouble() < 0.4) {
-      stash(inventory, random, new ItemStack(Material.CROSSBOW));
-    }
-    if (random.nextDouble() < 0.15) {
-      stash(inventory, random, new ItemStack(Material.GOLDEN_APPLE));
-    }
-    if (random.nextDouble() < 0.08) {
-      stash(inventory, random, new ItemStack(Material.DIAMOND, 1 + random.nextInt(2)));
-    }
-  }
-
-  private static void stash(Inventory inventory, Random random, ItemStack item) {
-    inventory.setItem(random.nextInt(inventory.getSize()), item);
   }
 
   /**

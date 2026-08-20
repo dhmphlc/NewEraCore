@@ -20,6 +20,7 @@ import com.edysmajler.neweracore.world.structures.StructureDefinition;
 import com.edysmajler.neweracore.world.structures.StructureManager;
 import com.edysmajler.neweracore.world.structures.StructureMarker;
 import com.edysmajler.neweracore.world.structures.StructurePlacer;
+import com.edysmajler.neweracore.world.structures.loot.LootTables;
 import java.util.ArrayList;
 import java.util.List;
 import org.bukkit.plugin.Plugin;
@@ -84,12 +85,16 @@ public final class WorldEngineFactory {
   private static StructureManager structures(Plugin plugin, WorldEngineConfig config) {
     List<StructureDefinition> definitions = new ArrayList<>();
 
+    LootTables lootTables = LootTables.load(config.getStructures(), plugin.getLogger());
+
     TemplateConfig jet = config.getStructures().templateFor("fighter_jet");
     if (jet.isEnabled()) {
-      definitions.add(new FighterJet(jet.getWeight()));
+      definitions.add(new FighterJet(
+          jet.getWeight(),
+          lootTables.resolve(jet.lootTable(LootTables.MILITARY), plugin.getLogger())));
     }
 
-    definitions.addAll(SchematicStructure.loadAll(plugin, config.getStructures()));
+    definitions.addAll(SchematicStructure.loadAll(plugin, config.getStructures(), lootTables));
 
     StructureManager manager = new StructureManager(definitions);
     // One line at enable: "why is X not spawning" always starts with whether X is registered

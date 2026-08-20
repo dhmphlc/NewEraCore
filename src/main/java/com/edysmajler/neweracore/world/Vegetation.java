@@ -160,15 +160,17 @@ public final class Vegetation {
    * Returns whether a plant would be left standing on nothing if the block below it went away.
    *
    * <p>Vines are excluded: they hang off the side of a block, so what is underneath them was never
-   * holding them up. Dead bushes are included even though nothing in this engine kills them — the
-   * engine <em>places</em> them as litter, and a crater carving through the ground afterwards has
-   * to take them with it.
+   * holding them up. Dead bushes and the pale moss ash carpet are included even though nothing in
+   * this engine kills them — the engine <em>places</em> them as litter, and a crater or a crash
+   * trench carving through the ground afterwards has to take them with it. Leaving the carpet out
+   * was a shipped artefact: every structure arrived ringed by ash carpets hanging over its scars.
    *
    * @param material the material to test
    * @return true when the material needs the block beneath it
    */
   public static boolean needsFooting(Material material) {
     return material == Material.DEAD_BUSH
+        || material == Material.PALE_MOSS_CARPET
         || (isFragile(material) && !isHanging(material));
   }
 

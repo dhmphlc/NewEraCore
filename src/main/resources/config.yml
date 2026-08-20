@@ -83,10 +83,49 @@ world-engine:
     #                 standard crash, 3 is devastation. Only crash templates read this.
     #   weight        share of the draw when a site picks what stands on it — 2.0 appears twice
     #                 as often as a template at 1.0
+    #   loot          which loot table stocks this template's containers. Omit it and the
+    #                 convention decides: crash templates carry `military`, plain ones `civilian`
+    #                 (`hardware` ships too, assign it here). `none` switches stocking off.
     templates:
       jet:
         destruction: 1.0
         weight: 1.0
+
+    # LOOT — what the wrecks hold. In a saved model, an EMPTY chest/barrel is the loot marker:
+    # every placement rolls it fresh from the site seed (same seed, same loot — like everything
+    # else about a site). A container saved WITH items keeps exactly those items, so hand-stocked
+    # chests still work. The built-in fighter jet stocks its pilot's kit the same way.
+    #
+    # Three tables ship built in — military, civilian, hardware — and templates use them via the
+    # convention above or a `loot:` line. Define your own tables here (or redefine a built-in id
+    # to replace it whole). A table is a list of POOLS, vanilla-style: each pool rolls `rolls`
+    # times and draws one weighted entry per roll, so themed pools keep a chest coherent — bulk
+    # salvage in one, food in another, one rare prize with a heavy `nothing` beside it.
+    #
+    # Entry lines (ranges are written like 2-5; a single number is fine):
+    #   item      a material name, or `nothing` — a weighted blank, how a pool comes up empty
+    #   weight    share of the pool's draw (default 1)
+    #   count     stack size range (default 1)
+    #   wear      share of durability already lost, 0-0.95 — loot that survived the end of the
+    #             world should look like it did
+    #   enchant   enchanting-table levels to roll random enchantments with; on a `book` this
+    #             makes an enchanted book, exactly like vanilla loot
+    #
+    # Example — a pharmacy shelf for a hospital template (`loot: medical` on that template):
+    #
+    # loot:
+    #   medical:
+    #     - rolls: 2-4
+    #       entries:
+    #         - {item: glistering_melon_slice, weight: 3, count: 1-3}
+    #         - {item: paper, weight: 3, count: 2-6}
+    #         - {item: sugar, weight: 2, count: 1-4}
+    #         - {item: spider_eye, weight: 1}
+    #     - rolls: 0-1
+    #       entries:
+    #         - {item: golden_apple, weight: 1}
+    #         - {item: nothing, weight: 3}
+    loot: {}
 
   # Rare impacts big enough to span many chunks. These are the events the rest of the world is
   # reacting to, so they are huge and far apart. Sites sit on a coarse grid in world coordinates

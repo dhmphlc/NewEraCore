@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Pattern;
 
 /**
  * Overrides for one structure template, keyed by its id in the structures config.
@@ -33,6 +34,10 @@ public class TemplateConfig {
   @DecimalMax("100.0")
   @JsonProperty("weight")
   private double weight = 1.0;
+
+  @Pattern(regexp = "[a-z0-9_.-]+")
+  @JsonProperty("loot")
+  private String loot;
 
   /**
    * Returns whether this template takes part in the scatter at all.
@@ -75,5 +80,19 @@ public class TemplateConfig {
    */
   public double getWeight() {
     return weight;
+  }
+
+  /**
+   * Returns the loot table this template stocks its containers from.
+   *
+   * <p>Unset means the convention decides — the caller passes what that is (crash templates
+   * default to {@code military}, plain ones to {@code civilian}) — so a template needs no entry to
+   * get themed loot. {@code none} switches stocking off.
+   *
+   * @param fallback the table the convention picked for this template
+   * @return the table id to resolve
+   */
+  public String lootTable(String fallback) {
+    return loot != null ? loot : fallback;
   }
 }

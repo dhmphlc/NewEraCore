@@ -4,6 +4,9 @@ import com.edysmajler.neweracore.config.StructuresConfig;
 import com.edysmajler.neweracore.config.TemplateConfig;
 import com.edysmajler.neweracore.world.ChunkContext;
 import com.edysmajler.neweracore.world.Vegetation;
+import com.edysmajler.neweracore.world.structures.loot.LootStocker;
+import com.edysmajler.neweracore.world.structures.loot.LootTable;
+import com.edysmajler.neweracore.world.structures.loot.LootTables;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -13,9 +16,11 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.Chest;
 import org.bukkit.block.Container;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.structure.StructureRotation;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.structure.Palette;
 import org.bukkit.structure.Structure;
@@ -51,6 +56,7 @@ public final class SchematicStructure implements StructureDefinition {
   private final String id;
   private final Structure schematic;
   private final double weight;
+  private final LootTable loot;
 
   /**
    * Wraps one loaded schematic.
@@ -58,11 +64,13 @@ public final class SchematicStructure implements StructureDefinition {
    * @param id the structure id, taken from the filename
    * @param schematic the loaded structure
    * @param weight this template's share of the draw
+   * @param loot what this template's empty containers hold, or null to leave them empty
    */
-  public SchematicStructure(String id, Structure schematic, double weight) {
+  public SchematicStructure(String id, Structure schematic, double weight, LootTable loot) {
     this.id = id;
     this.schematic = schematic;
     this.weight = weight;
+    this.loot = loot;
   }
 
   /**
@@ -78,9 +86,11 @@ public final class SchematicStructure implements StructureDefinition {
    *
    * @param plugin the plugin whose data folder holds the files
    * @param config the structures config, whose per-template entries override the filenames
+   * @param lootTables the loot registry templates stock their containers from
    * @return the loaded definitions, possibly empty
    */
-  public static List<StructureDefinition> loadAll(Plugin plugin, StructuresConfig config) {
+  public static List<StructureDefinition> loadAll(
+      Plugin plugin, StructuresConfig config, LootTables lootTables) {
     File folder = new File(plugin.getDataFolder(), "structures");
     File[] files = folder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".nbt"));
 
@@ -101,13 +111,20 @@ public final class SchematicStructure implements StructureDefinition {
         continue;
       }
 
+      boolean crash = template.isCrash(crashByName);
+
+      // The convention: what fell out of the sky carries military salvage, what merely stands
+      // there holds civilian scavenge. A template's config entry overrides either way.
+      LootTable loot = lootTables.resolve(
+          template.lootTable(crash ? LootTables.MILITARY : LootTables.CIVILIAN),
+          plugin.getLogger());
+
       try {
         Structure structure = plugin.getServer().getStructureManager().loadStructure(file);
-        SchematicStructure model = new SchematicStructure(id, structure, template.getWeight());
+        SchematicStructure model =
+            new SchematicStructure(id, structure, template.getWeight(), loot);
 
-        loaded.add(template.isCrash(crashByName)
-            ? new CrashedSchematic(model, template.getDestruction())
-            : model);
+        loaded.add(crash ? new CrashedSchematic(model, template.getDestruction()) : model);
       } catch (IOException e) {
         plugin.getLogger().warning("Skipping unreadable structure " + file.getName()
             + ": " + e.getMessage());
@@ -329,8 +346,32 @@ public final class SchematicStructure implements StructureDefinition {
       BlockState copy = state.copy(new Location(origin.getWorld(), x, blockY, z));
       copy.setBlockData(data);
       copy.update(true, false);
+      stockContainer(field, x, blockY, z);
     } else {
       field.set(x, blockY, z, data);
+    }
+  }
+
+  /**
+   * Stocks a just-placed container from this template's loot table.
+   *
+   * <p>An empty container in the saved model is the loot marker: place empty chests where the
+   * loot goes, and every placement rolls them fresh from the site seed. A container saved
+   * <em>with</em> contents keeps them untouched, because hand-stocked contents are the builder
+   * saying exactly what belongs there.
+   */
+  private void stockContainer(StructureField field, int x, int y, int z) {
+    if (loot == null || !(field.blockAt(x, y, z).getState() instanceof Container placed)) {
+      return;
+    }
+
+    // A chest's own inventory, not the double-wide view, so each half of a double chest rolls
+    // once and a half in an unloaded neighbour chunk can never be touched
+    Inventory inventory =
+        placed instanceof Chest chest ? chest.getBlockInventory() : placed.getInventory();
+
+    if (inventory.isEmpty()) {
+      LootStocker.stock(inventory, loot, field.random());
     }
   }
 

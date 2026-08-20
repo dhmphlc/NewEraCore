@@ -8,7 +8,9 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,10 +42,13 @@ public class StructuresConfig {
   @JsonProperty("jitter")
   private double jitter = 0.4;
 
-  @Valid
   @NotNull
   @JsonProperty("templates")
   private Map<String, @Valid TemplateConfig> templates = new HashMap<>();
+
+  @NotNull
+  @JsonProperty("loot")
+  private Map<String, @Valid List<@Valid LootPoolConfig>> loot = new HashMap<>();
 
   public boolean isEnabled() {
     return enabled;
@@ -91,5 +96,18 @@ public class StructuresConfig {
    */
   public TemplateConfig templateFor(String id) {
     return templates.getOrDefault(id, TemplateConfig.DEFAULTS);
+  }
+
+  /**
+   * Returns the loot tables defined in config, keyed by table id.
+   *
+   * <p>Raw config shapes rather than parsed tables: what a range string or a material name
+   * <em>means</em> is decided in {@code LootTables}, where a bad value can be logged and skipped
+   * without failing the enable.
+   *
+   * @return the defined tables, possibly empty
+   */
+  public Map<String, List<LootPoolConfig>> getLoot() {
+    return Collections.unmodifiableMap(loot);
   }
 }
