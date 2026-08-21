@@ -63,6 +63,12 @@ repositories {
 
 val mockitoAgent = configurations.create("mockitoAgent")
 
+// The world planner: a desktop tool, not part of the plugin JAR. It lives in this project rather
+// than beside it so it compiles against the real seed-pure classes — the noise fields, the
+// corruption bands, the site grids — instead of a port of them that would drift out of agreement
+// with the plugin the first time either side changed.
+val planner: SourceSet by sourceSets.creating
+
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.2.build.87-stable")
 
@@ -83,6 +89,39 @@ dependencies {
 
     testImplementation("org.mockito:mockito-core:5.23.0")
     mockitoAgent("org.mockito:mockito-core:5.23.0") { isTransitive = false }
+}
+
+dependencies {
+    "plannerImplementation"(sourceSets.main.get().output)
+    // On the runtime classpath as well as the compile one: the shared classes name Bukkit types in
+    // signatures the planner never calls, and the JVM only resolves those lazily, but a missing
+    // paper-api would turn any mistake about that into a NoClassDefFoundError in front of a user.
+    "plannerImplementation"("io.papermc.paper:paper-api:26.2.build.87-stable")
+    "plannerImplementation"("com.fasterxml.jackson.core:jackson-databind:2.22.1")
+    "plannerCompileOnly"("com.github.spotbugs:spotbugs-annotations:4.10.3")
+}
+
+tasks.register<JavaExec>("runPlanner") {
+    group = "application"
+    description = "Opens the NewEra World Planner. Pass a snapshot with -Psnapshot=<path>."
+    mainClass.set("com.edysmajler.neweracore.planner.PlannerApp")
+    classpath = planner.runtimeClasspath
+    if (project.hasProperty("snapshot")) {
+        args(project.property("snapshot") as String)
+    }
+}
+
+tasks.register<Jar>("plannerJar") {
+    group = "build"
+    description = "Builds a runnable JAR of the world planner."
+    archiveClassifier.set("planner")
+    manifest {
+        attributes("Main-Class" to "com.edysmajler.neweracore.planner.PlannerApp")
+    }
+    from(planner.output)
+    from(sourceSets.main.get().output)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(planner.runtimeClasspath.filter { it.name.startsWith("jackson") }.map { zipTree(it) })
 }
 
 tasks.test {

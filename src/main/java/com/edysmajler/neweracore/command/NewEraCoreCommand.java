@@ -4,6 +4,7 @@ import com.crimsonwarpedcraft.cwcommons.command.BaseCommand;
 import com.edysmajler.neweracore.config.PluginConfig;
 import com.edysmajler.neweracore.world.WorldEngine;
 import dev.jorel.commandapi.CommandAPICommand;
+import dev.jorel.commandapi.arguments.IntegerArgument;
 import dev.jorel.commandapi.arguments.MultiLiteralArgument;
 import java.util.stream.Stream;
 import org.bukkit.plugin.Plugin;
@@ -33,6 +34,13 @@ public class NewEraCoreCommand extends BaseCommand {
             .withSubcommand(
                 new CommandAPICommand("here")
                     .executesPlayer(new Here(config, engine))
+            )
+            // Sampling reads the world the player is standing in, so it is player-only too
+            .withSubcommand(
+                new CommandAPICommand("export")
+                    .withOptionalArguments(new IntegerArgument(Export.SIZE, 256, 16384))
+                    .withOptionalArguments(new IntegerArgument(Export.RESOLUTION, 1, 16))
+                    .executesPlayer(new Export(config, plugin, engine))
             )
             .withSubcommand(
                 new CommandAPICommand("craters")
