@@ -135,6 +135,24 @@ public class ChunkContext {
   }
 
   /**
+   * Returns this chunk's x coordinate.
+   *
+   * @return the chunk x
+   */
+  public int chunkX() {
+    return chunk.getX();
+  }
+
+  /**
+   * Returns this chunk's z coordinate.
+   *
+   * @return the chunk z
+   */
+  public int chunkZ() {
+    return chunk.getZ();
+  }
+
+  /**
    * Returns the huge impact sites that reach this chunk, usually none.
    *
    * @return the sites

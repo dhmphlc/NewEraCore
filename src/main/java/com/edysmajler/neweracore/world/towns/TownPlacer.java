@@ -82,15 +82,23 @@ public final class TownPlacer implements ChunkProcessor {
         world.getChunkAt((int) chunk[0], (int) chunk[1]);
       }
 
-      place(new StructureField(world, town.seed()), town);
+      build(new StructureField(world, town.seed()), town);
       logger.info(() -> "Placed town at " + town.centerX() + ", " + town.centerZ());
     }
   }
 
   /**
-   * Lays the town out and builds it.
+   * Lays a town out and builds it.
+   *
+   * <p>Public because a hand-authored plan builds its settlements through here too: the layout is
+   * the tested code for putting a ruined town on the ground, and a plan-specific copy of it would
+   * be a second implementation drifting from this one. The plan supplies a site like any other; the
+   * only difference is where the site came from.
+   *
+   * @param field the world writer over the footprint
+   * @param town where the town stands, how far it reaches, and which ways its streets run
    */
-  private void place(StructureField field, TownSite town) {
+  public void build(StructureField field, TownSite town) {
     Random random = field.random();
 
     List<TownSite.Heading> streets = town.streets().isEmpty()

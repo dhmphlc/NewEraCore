@@ -43,6 +43,10 @@ public class NewEraCoreCommand extends BaseCommand {
                     .executesPlayer(new Export(config, plugin, engine))
             )
             .withSubcommand(
+                new CommandAPICommand("plan")
+                    .executesPlayer(new Plan(config, engine))
+            )
+            .withSubcommand(
                 new CommandAPICommand("craters")
                     .executesPlayer(new FindCraters(config, engine))
             )

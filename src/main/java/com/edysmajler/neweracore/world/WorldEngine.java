@@ -1,18 +1,26 @@
 package com.edysmajler.neweracore.world;
 
 import com.edysmajler.neweracore.config.WorldEngineConfig;
+import com.edysmajler.neweracore.plan.PlannedLocation;
 import com.edysmajler.neweracore.world.corruption.CorruptionZone;
 import com.edysmajler.neweracore.world.feature.CraterSites;
 import com.edysmajler.neweracore.world.noise.NoiseFields;
+import com.edysmajler.neweracore.world.plan.PlanSites;
+import com.edysmajler.neweracore.world.plan.PlannedPlacer;
+import com.edysmajler.neweracore.world.plan.WorldPlanBook;
 import com.edysmajler.neweracore.world.structures.StructureManager;
+import com.edysmajler.neweracore.world.structures.StructureSite;
 import com.edysmajler.neweracore.world.structures.StructureSites;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
+import com.edysmajler.neweracore.world.towns.TownSite;
 import com.edysmajler.neweracore.world.towns.TownSites;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.ToIntFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bukkit.Chunk;
@@ -20,6 +28,7 @@ import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.WorldLoadEvent;
 
 /**
  * Runs the corruption pipeline over each chunk exactly once, when it first generates.
@@ -39,6 +48,8 @@ public class WorldEngine implements Listener {
   private final ChunkMarker marker;
   private final List<ChunkProcessor> pipeline;
   private final StructureManager structures;
+  private final WorldPlanBook plans;
+  private final PlannedPlacer plannedPlacer;
   private final Logger logger;
   private final Map<UUID, NoiseFields> fieldsByWorld = new ConcurrentHashMap<>();
 
@@ -49,6 +60,8 @@ public class WorldEngine implements Listener {
    * @param marker the transformed-chunk marker
    * @param pipeline the processors to run, in order
    * @param structures the registry of scattered structures
+   * @param plans the hand-authored plans, one per world
+   * @param plannedPlacer the placer for hand-authored locations, which also runs outside chunk load
    * @param logger the logger used to report processor failures
    */
   @SuppressFBWarnings(
@@ -60,12 +73,16 @@ public class WorldEngine implements Listener {
       ChunkMarker marker,
       List<ChunkProcessor> pipeline,
       StructureManager structures,
+      WorldPlanBook plans,
+      PlannedPlacer plannedPlacer,
       Logger logger
   ) {
     this.config = config;
     this.marker = marker;
     this.pipeline = List.copyOf(pipeline);
     this.structures = structures;
+    this.plans = plans;
+    this.plannedPlacer = plannedPlacer;
     this.logger = logger;
   }
 
@@ -93,6 +110,38 @@ public class WorldEngine implements Listener {
   }
 
   /**
+   * Builds the planned locations in a world that is loading after the engine started.
+   *
+   * @param event the world load event
+   */
+  @EventHandler
+  public void onWorldLoad(WorldLoadEvent event) {
+    if (config.isEnabled()) {
+      plannedPlacer.sweep(event.getWorld());
+    }
+  }
+
+  /**
+   * Builds the planned locations standing on ground that already exists.
+   *
+   * <p>Called once at enable, for the worlds that were loaded before the engine was. Without it the
+   * spawn area is a blind spot: it generates before any plugin is enabled, so its chunks are never
+   * new to the engine — and a planner that centres its map on 0,0 puts the designer's first town
+   * right there.
+   *
+   * @param worlds the worlds already loaded
+   */
+  public void catchUpPlans(List<World> worlds) {
+    if (!config.isEnabled()) {
+      return;
+    }
+
+    for (World world : worlds) {
+      plannedPlacer.sweep(world);
+    }
+  }
+
+  /**
    * Returns a world's noise fields, building them on first use.
    *
    * <p>Public because the fields are worth asking about from outside chunk generation: commands
@@ -117,6 +166,18 @@ public class WorldEngine implements Listener {
    */
   public StructureManager structures() {
     return structures;
+  }
+
+  /**
+   * Returns the loaded plans.
+   *
+   * <p>Public for the same reason the fields and the registry are: a command that reports what the
+   * world will contain has to read exactly what the generator reads.
+   *
+   * @return the plan book
+   */
+  public WorldPlanBook plans() {
+    return plans;
   }
 
   /**
@@ -166,22 +227,69 @@ public class WorldEngine implements Listener {
             chunk.getZ(),
             1.35
         ),
-        StructureSites.near(
-            config.getStructures(),
-            structures,
-            land,
-            world.getSeed(),
-            chunk.getX(),
-            chunk.getZ()
+        withoutPlannedGround(
+            world,
+            StructureSites.near(
+                config.getStructures(),
+                structures,
+                land,
+                world.getSeed(),
+                chunk.getX(),
+                chunk.getZ()
+            ),
+            StructureSite::centerX,
+            StructureSite::centerZ
         ),
-        TownSites.near(
-            config.getTowns(),
-            land,
-            world.getSeed(),
-            chunk.getX(),
-            chunk.getZ()
+        withoutPlannedGround(
+            world,
+            TownSites.near(
+                config.getTowns(),
+                land,
+                world.getSeed(),
+                chunk.getX(),
+                chunk.getZ()
+            ),
+            TownSite::centerX,
+            TownSite::centerZ
         )
     );
+  }
+
+  /**
+   * Drops the seeded sites standing on ground a designer has already claimed.
+   *
+   * <p>The plan wins where the two systems overlap. A procedural town a few blocks from a designed
+   * one is worse than either alone: the designed one stops reading as deliberate, which was the
+   * entire reason for placing it by hand. The seeded site is simply absent rather than moved,
+   * because moving it would make every site's position depend on the plan and shift the whole
+   * world the first time a marker was nudged.
+   */
+  private <T> List<T> withoutPlannedGround(
+      World world,
+      List<T> sites,
+      ToIntFunction<T> centerX,
+      ToIntFunction<T> centerZ
+  ) {
+    if (sites.isEmpty()) {
+      return sites;
+    }
+
+    List<PlannedLocation> planned = plans.forWorld(world.getName(), world.getSeed()).locations();
+    if (planned.isEmpty()) {
+      return sites;
+    }
+
+    int clearance = config.getPlan().getClearance();
+    List<T> kept = new ArrayList<>(sites.size());
+
+    for (T site : sites) {
+      if (!PlanSites.isReserved(
+          planned, centerX.applyAsInt(site), centerZ.applyAsInt(site), clearance)) {
+        kept.add(site);
+      }
+    }
+
+    return kept;
   }
 
   private void run(Chunk chunk, ChunkContext context) {

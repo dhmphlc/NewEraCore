@@ -61,6 +61,10 @@ public class NewEraCore extends JavaPlugin {
     WorldEngine worldEngine = WorldEngineFactory.create(this, config.getWorldEngine());
     getServer().getPluginManager().registerEvents(worldEngine, this);
 
+    // The spawn area generated before this plugin was enabled, so its chunks will never be new:
+    // anything a designer planned there has to be built now or never.
+    worldEngine.catchUpPlans(getServer().getWorlds());
+
     // Set up in-game /neweracore command
     new NewEraCoreCommand(config, this, worldEngine).register();
   }

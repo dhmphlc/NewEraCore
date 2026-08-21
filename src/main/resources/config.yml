@@ -157,6 +157,34 @@ world-engine:
     spacing: 1024   # blocks between candidate town cells; larger means rarer
     chance: 0.7     # chance a cell holds a town — it also needs land at its node
 
+  # Hand-authored world plans.
+  #
+  # The seeded systems above answer "where would a wreck plausibly be". A plan answers "where is
+  # Haven". Design one with the world planner (./gradlew runPlanner after /nec export), save the
+  # JSON into plans/, and the locations in it are built exactly where you put them.
+  #
+  # A plan is read once per world, by convention: plans/<world>.json if it exists, otherwise the
+  # shared plans/world-plan.json. A plan whose seed does not match the world is REFUSED and said so
+  # in the log — every coordinate in it was chosen by looking at different terrain, and applying it
+  # anyway would put towns underwater with nothing to explain why.
+  #
+  # Use /nec plan in game to see what loaded and what will actually be built.
+  plan:
+    enabled: true
+    file: ""        # empty uses the convention above; naming a file makes every world read it
+    clearance: 32   # blocks around a planned location where the seeded systems are kept out, so a
+                    # procedural town never lands beside a designed one and spoils it
+
+    # Which registered structure builds each planned type. Settlements (TOWN, CITY) are absent
+    # deliberately: they are built by the town system and cannot be remapped here. A type with no
+    # entry places nothing and says so once in the log, which is the honest answer while the
+    # structure library is thin — approximating a HOSPITAL with whatever wreck was registered would
+    # put a lie on ground you picked on purpose.
+    builders:
+      CRASH_SITE: fighter_jet
+      # BUNKER: my_bunker          # any id from the structure scatter registry, including
+      # MILITARY_BASE: my_base     # schematics dropped into structures/
+
   # Ore torn out of the ground by an impact and left lying in the open.
   ores:
     small-crater-chance: 0.07   # chance a debris block in a small crater is ore

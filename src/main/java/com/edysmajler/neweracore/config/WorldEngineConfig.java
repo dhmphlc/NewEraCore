@@ -53,6 +53,11 @@ public class WorldEngineConfig {
 
   @Valid
   @NotNull
+  @JsonProperty("plan")
+  private PlanConfig plan = new PlanConfig();
+
+  @Valid
+  @NotNull
   @JsonProperty("ores")
   private OreConfig ores = new OreConfig();
 
@@ -101,6 +106,15 @@ public class WorldEngineConfig {
    */
   public TownsConfig getTowns() {
     return towns;
+  }
+
+  /**
+   * Returns the hand-authored world plan settings.
+   *
+   * @return the plan config
+   */
+  public PlanConfig getPlan() {
+    return plan;
   }
 
   public OreConfig getOres() {

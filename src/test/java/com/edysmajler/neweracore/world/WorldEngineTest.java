@@ -17,12 +17,18 @@ import com.edysmajler.neweracore.config.HugeCraterConfig;
 import com.edysmajler.neweracore.config.LevelsConfig;
 import com.edysmajler.neweracore.config.NoiseConfig;
 import com.edysmajler.neweracore.config.OreConfig;
+import com.edysmajler.neweracore.config.PlanConfig;
 import com.edysmajler.neweracore.config.StructuresConfig;
 import com.edysmajler.neweracore.config.ThresholdConfig;
 import com.edysmajler.neweracore.config.TownsConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
+import com.edysmajler.neweracore.world.plan.PlannedPlacer;
+import com.edysmajler.neweracore.world.plan.WorldPlanBook;
 import com.edysmajler.neweracore.world.structures.StructureManager;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
+import com.edysmajler.neweracore.world.towns.PlacedMarker;
+import com.edysmajler.neweracore.world.towns.TownPlacer;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -97,8 +103,8 @@ class WorldEngineTest {
     WorldEngineConfig config = engineConfig(true);
 
     withStubbedGround(
-        new WorldEngine(config, marker, List.of(failing, second), emptyRegistry(),
-            Logger.getAnonymousLogger()))
+        new WorldEngine(config, marker, List.of(failing, second), emptyRegistry(), noPlans(),
+            noPlacer(), Logger.getAnonymousLogger()))
         .onChunkLoad(event(true));
 
     // A broken stage must not stop the stages after it
@@ -127,6 +133,8 @@ class WorldEngineTest {
         marker,
         List.of(processor),
         emptyRegistry(),
+        noPlans(),
+        noPlacer(),
         Logger.getAnonymousLogger()
     ));
   }
@@ -156,6 +164,23 @@ class WorldEngineTest {
 
   private static StructureManager emptyRegistry() {
     return new StructureManager(List.of());
+  }
+
+  /** A placer over the same nothing, so the engine has a collaborator but no plan to apply. */
+  private static PlannedPlacer noPlacer() {
+    return new PlannedPlacer(
+        noPlans(),
+        new PlanConfig(),
+        new StructureManager(List.of()),
+        new TownPlacer(mock(PlacedMarker.class), null, Logger.getAnonymousLogger()),
+        mock(PlacedMarker.class),
+        Logger.getAnonymousLogger());
+  }
+
+  /** A book over a folder with no plans in it, which is every world these tests care about. */
+  private static WorldPlanBook noPlans() {
+    return new WorldPlanBook(
+        Path.of("no-such-folder"), new PlanConfig(), Logger.getAnonymousLogger());
   }
 
   private static ChunkLoadEvent event(boolean newChunk) {

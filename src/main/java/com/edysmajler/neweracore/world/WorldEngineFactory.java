@@ -14,6 +14,8 @@ import com.edysmajler.neweracore.world.biome.SavannaTransformer;
 import com.edysmajler.neweracore.world.biome.SwampTransformer;
 import com.edysmajler.neweracore.world.biome.TaigaTransformer;
 import com.edysmajler.neweracore.world.feature.HangingPlants;
+import com.edysmajler.neweracore.world.plan.PlannedPlacer;
+import com.edysmajler.neweracore.world.plan.WorldPlanBook;
 import com.edysmajler.neweracore.world.structures.FighterJet;
 import com.edysmajler.neweracore.world.structures.SchematicStructure;
 import com.edysmajler.neweracore.world.structures.StructureDefinition;
@@ -63,22 +65,39 @@ public final class WorldEngineFactory {
     LootTables lootTables = LootTables.load(config.getStructures(), plugin.getLogger());
     StructureManager structures = structures(plugin, config, lootTables);
 
+    TownPlacer towns = new TownPlacer(
+        new PlacedMarker(plugin, "town-placed"),
+        lootTables.resolve(LootTables.CIVILIAN, plugin.getLogger()),
+        plugin.getLogger());
+
+    WorldPlanBook plans = new WorldPlanBook(
+        plugin.getDataFolder().toPath(), config.getPlan(), plugin.getLogger());
+
     // Order is the design. Structures and towns come after the biome transformation because they
     // are read as recent — their damage takes a bite out of the ashen ground rather than being
     // buried by it. HangingPlants stays last, cleaning up after everything that removes a block —
     // including passes nobody has written yet.
+    PlannedPlacer planned = new PlannedPlacer(
+        plans,
+        config.getPlan(),
+        structures,
+        towns,
+        new PlacedMarker(plugin, "plan-placed"),
+        plugin.getLogger());
+
     List<ChunkProcessor> pipeline = List.of(
         new BiomeTransformationProcessor(manager),
         new StructurePlacer(structures, new StructureMarker(plugin), plugin.getLogger()),
-        new TownPlacer(
-            new PlacedMarker(plugin, "town-placed"),
-            lootTables.resolve(LootTables.CIVILIAN, plugin.getLogger()),
-            plugin.getLogger()),
+        towns,
+        // After both seeded placers, because the plan is the last word on its own ground: the
+        // engine has already kept the seeded systems out of it, and building last means a planned
+        // settlement is never partly buried by something that thought the ground was free.
+        planned,
         new HangingPlants()
     );
 
     return new WorldEngine(
-        config, new ChunkMarker(plugin), pipeline, structures, plugin.getLogger());
+        config, new ChunkMarker(plugin), pipeline, structures, plans, planned, plugin.getLogger());
   }
 
   /**

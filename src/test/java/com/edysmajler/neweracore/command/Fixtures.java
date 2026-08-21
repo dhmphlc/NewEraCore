@@ -9,15 +9,19 @@ import static org.mockito.Mockito.when;
 import com.edysmajler.neweracore.config.HugeCraterConfig;
 import com.edysmajler.neweracore.config.LevelsConfig;
 import com.edysmajler.neweracore.config.NoiseConfig;
+import com.edysmajler.neweracore.config.PlanConfig;
 import com.edysmajler.neweracore.config.PluginConfig;
 import com.edysmajler.neweracore.config.StructuresConfig;
 import com.edysmajler.neweracore.config.ThresholdConfig;
 import com.edysmajler.neweracore.config.WorldEngineConfig;
 import com.edysmajler.neweracore.world.ChunkMarker;
 import com.edysmajler.neweracore.world.WorldEngine;
+import com.edysmajler.neweracore.world.plan.PlannedPlacer;
+import com.edysmajler.neweracore.world.plan.WorldPlanBook;
 import com.edysmajler.neweracore.world.structures.FighterJet;
 import com.edysmajler.neweracore.world.structures.StructureManager;
 import com.edysmajler.neweracore.world.terrain.LandLookup;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -121,6 +125,11 @@ final class Fixtures {
         marker,
         List.of(),
         new StructureManager(List.of(new FighterJet())),
+        // A book over a folder with nothing in it: the command tests are about what the engine
+        // reports, and a plan would be a second source of sites in the answer
+        new WorldPlanBook(Path.of("no-such-folder"), new PlanConfig(),
+            Logger.getAnonymousLogger()),
+        mock(PlannedPlacer.class),
         Logger.getAnonymousLogger()
     ));
 
